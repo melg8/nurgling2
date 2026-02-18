@@ -7,26 +7,29 @@ import nurgling.actions.GoTo;
 import nurgling.actions.Results;
 import nurgling.overlays.CliffClimberDebugOverlay;
 import nurgling.widgets.bots.CliffClimberTestWnd;
+import haven.render.*;
 
+import java.awt.Color;
 import java.util.*;
 
 /**
  * Cliff Climber Test Bot (#16)
- * 
+ *
  * Tests cliff crossing logic with debug visualization.
- * 
+ *
  * Behavior:
  * 1. Move forward in look direction until reaching cliff
  * 2. Analyze cliff pattern (1 or 2 cells ahead)
  * 3. Cross cliff using appropriate strategy
  * 4. Move 2 cells beyond cliff
- * 
+ *
  * Visualization:
  * - Shows planned path for 20 cells ahead
  * - Marks cliff cells in red
  * - Marks neighbor cells in yellow
  * - Marks target point in green
  * - Shows path line in blue
+ * - Shows FULL PATH from start to end in ORANGE (emulating complete travel through cliff)
  */
 public class CliffClimberTest implements Action {
     
@@ -41,6 +44,15 @@ public class CliffClimberTest implements Action {
     private CliffClimberDebugOverlay debugOverlay;
     private int lookDir = 1;  // Default look direction (North)
     private Coord lastPlayerPos = null;  // Track player position for direction detection
+    
+    // Full path visualization (similar to NPathVisualizer)
+    private static final VertexArray.Layout PATH_LAYOUT = new VertexArray.Layout(
+            new VertexArray.Layout.Input(Homo3D.vertex, new VectorFormat(3, NumberFormat.FLOAT32), 0, 0, 12));
+    private static final float PATH_Z = 1f;
+    private static final Color FULL_PATH_COLOR = new Color(255, 165, 0, 255);  // Orange path
+    private Model fullPathModel;
+    private Collection<RenderTree.Slot> fullPathSlots = new ArrayList<>(1);
+    private Pipe.Op fullPathState;
     
     @Override
     public Results run(NGameUI gui) throws InterruptedException {
@@ -61,6 +73,13 @@ public class CliffClimberTest implements Action {
         // Create debug overlay
         debugOverlay = new CliffClimberDebugOverlay(gameui.ui.sess.glob.map);
         
+        // Initialize full path rendering state
+        fullPathState = Pipe.Op.compose(
+                new BaseColor(FULL_PATH_COLOR),
+                new States.LineWidth(2.0f),
+                Rendered.last, States.Depthtest.none, States.maskdepth
+        );
+
         try {
             // Get initial look direction from player
             lookDir = getLookDirection();
@@ -71,6 +90,27 @@ public class CliffClimberTest implements Action {
             // Main loop - continuously update visualization
             lastPlayerPos = NUtils.player().rc.div(MCache.tilesz).floor();  // Initialize position
             int lastLookDir = lookDir;
+            
+            // Register full path overlay in render tree
+            RenderTree.Slot fullPathSlot = gameui.map.basic.add(new RenderTree.Node() {
+                @Override
+                public void added(RenderTree.Slot slot) {
+                    slot.ostate(fullPathState);
+                    fullPathSlots.add(slot);
+                }
+                
+                @Override
+                public void removed(RenderTree.Slot slot) {
+                    fullPathSlots.remove(slot);
+                }
+                
+                public void draw(Pipe context, Render out) {
+                    if (fullPathModel != null) {
+                        out.draw(context, fullPathModel);
+                    }
+                }
+            });
+            
             while (true) {
                 Coord playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
                 
@@ -93,6 +133,12 @@ public class CliffClimberTest implements Action {
             if (debugOverlay != null) {
                 debugOverlay.clearAll();
             }
+            // Clear full path model
+            fullPathModel = null;
+            for (RenderTree.Slot slot : fullPathSlots) {
+                slot.remove();
+            }
+            fullPathSlots.clear();
             lastPlayerPos = null;  // Reset position tracker
         }
     }
@@ -104,38 +150,44 @@ public class CliffClimberTest implements Action {
         try {
             // Get path cells (20 cells ahead in look direction)
             List<Coord> pathCells = getPathCells(playerPos, 20);
-            
+
             // Find first cliff cell
             Coord firstCliff = findFirstCliff(pathCells, gui);
-            
+
             if (firstCliff != null) {
                 // Analyze cliff pattern
                 CliffAnalysis analysis = analyzeCliff(firstCliff, lookDir, gui);
-                
+
                 // Set cliff cells
                 debugOverlay.setCliffCells(analysis.cliffCells);
-                
+
                 // Set neighbor cells
                 debugOverlay.setNeighborCells(analysis.neighborCells);
-                
+
                 // Set target
                 debugOverlay.setTargetCell(analysis.targetCell);
-                
+
                 // Set path line (first 5 cells)
                 Coord endPos = pathCells.get(Math.min(pathCells.size() - 1, 5));
                 debugOverlay.setPath(playerPos, endPos);
+                
+                // Draw full path from player to final target (emulating travel through cliff)
+                updateFullPath(playerPos, analysis, gui);
             } else {
                 // No cliff - just show path (first 5 cells)
                 Coord endPos = pathCells.get(Math.min(pathCells.size() - 1, 5));
                 debugOverlay.setPath(playerPos, endPos);
+                
+                // Draw short path ahead (no cliff detected)
+                updateFullPathNoCliff(playerPos, pathCells, gui);
             }
-            
+
             // Set all path cells
             debugOverlay.setPathCells(pathCells);
-            
+
             // Update overlays
             debugOverlay.update();
-            
+
         } catch (Exception e) {
             // Ignore visualization errors
         }
@@ -293,7 +345,133 @@ public class CliffClimberTest implements Action {
     private int getLookDirection() {
         return 1;  // North
     }
+
+    /**
+     * Update full path visualization from player to final target
+     * Shows the complete emulated travel path through the cliff
+     */
+    private void updateFullPath(Coord playerPos, CliffAnalysis analysis, NGameUI gui) {
+        try {
+            // Build complete path: player -> approach -> cliff crossing -> target -> 2 cells beyond
+            List<Coord3f> pathPoints = new ArrayList<>();
+            
+            // Start from player position
+            Coord2d playerWorld = playerPos.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+            pathPoints.add(new Coord3f((float)playerWorld.x, -(float)playerWorld.y, (float)getZ(playerPos, gui) + PATH_Z));
+            
+            // Add cliff cells
+            for (Coord cliffCell : analysis.cliffCells) {
+                Coord2d world = cliffCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+                pathPoints.add(new Coord3f((float)world.x, -(float)world.y, (float)getZ(cliffCell, gui) + PATH_Z));
+            }
+            
+            // Add neighbor cells (approach path)
+            for (Coord neighborCell : analysis.neighborCells) {
+                Coord2d world = neighborCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+                pathPoints.add(new Coord3f((float)world.x, -(float)world.y, (float)getZ(neighborCell, gui) + PATH_Z));
+            }
+            
+            // Add target cell
+            if (analysis.targetCell != null) {
+                Coord2d world = analysis.targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+                pathPoints.add(new Coord3f((float)world.x, -(float)world.y, (float)getZ(analysis.targetCell, gui) + PATH_Z));
+                
+                // Add 2 cells beyond target in look direction
+                Coord dir = dirVectors[lookDir];
+                for (int i = 1; i <= 2; i++) {
+                    Coord beyond = analysis.targetCell.add(dir.mul(i));
+                    Coord2d worldBeyond = beyond.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+                    pathPoints.add(new Coord3f((float)worldBeyond.x, -(float)worldBeyond.y, (float)getZ(beyond, gui) + PATH_Z));
+                }
+            }
+            
+            updateFullPathModel(pathPoints);
+        } catch (Exception e) {
+            // Ignore errors
+        }
+    }
     
+    /**
+     * Update full path visualization when no cliff is detected
+     * Shows short path ahead
+     */
+    private void updateFullPathNoCliff(Coord playerPos, List<Coord> pathCells, NGameUI gui) {
+        try {
+            List<Coord3f> pathPoints = new ArrayList<>();
+            
+            // Start from player position
+            Coord2d playerWorld = playerPos.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+            pathPoints.add(new Coord3f((float)playerWorld.x, -(float)playerWorld.y, (float)getZ(playerPos, gui) + PATH_Z));
+            
+            // Add first 10 path cells
+            for (int i = 0; i < Math.min(10, pathCells.size()); i++) {
+                Coord cell = pathCells.get(i);
+                Coord2d world = cell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+                pathPoints.add(new Coord3f((float)world.x, -(float)world.y, (float)getZ(cell, gui) + PATH_Z));
+            }
+            
+            updateFullPathModel(pathPoints);
+        } catch (Exception e) {
+            // Ignore errors
+        }
+    }
+    
+    /**
+     * Update the full path model with new points
+     */
+    private void updateFullPathModel(List<Coord3f> pathPoints) {
+        if (pathPoints.isEmpty()) {
+            fullPathModel = null;
+            updateFullPathSlots();
+            return;
+        }
+        
+        try {
+            // Convert path points to line segments
+            float[] data = new float[pathPoints.size() * 3];
+            for (int i = 0; i < pathPoints.size(); i++) {
+                Coord3f p = pathPoints.get(i);
+                data[i * 3] = p.x;
+                data[i * 3 + 1] = p.y;
+                data[i * 3 + 2] = p.z;
+            }
+            
+            VertexArray.Buffer vbo = new VertexArray.Buffer(data.length * 4,
+                    DataBuffer.Usage.STATIC, DataBuffer.Filler.of(data));
+            VertexArray va = new VertexArray(PATH_LAYOUT, vbo);
+            
+            fullPathModel = new Model(Model.Mode.LINE_STRIP, va, null);
+            updateFullPathSlots();
+        } catch (Exception e) {
+            fullPathModel = null;
+        }
+    }
+    
+    /**
+     * Update all full path rendering slots
+     */
+    private void updateFullPathSlots() {
+        Collection<RenderTree.Slot> tslots;
+        synchronized (fullPathSlots) {
+            tslots = new ArrayList<>(fullPathSlots);
+        }
+        try {
+            tslots.forEach(RenderTree.Slot::update);
+        } catch (Exception ignored) {
+        }
+    }
+    
+    /**
+     * Get Z coordinate (height) at given tile position
+     */
+    private float getZ(Coord tc, NGameUI gui) {
+        try {
+            return (float) gui.ui.sess.glob.map.getfz(tc);
+        } catch (Exception e) {
+            return 0f;
+        }
+    }
+
     private String dirName(int dir) {
         return new String[]{"E", "N", "W", "S"}[dir];
     }
