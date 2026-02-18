@@ -16,6 +16,7 @@ public class NWorldExplorerProp implements JConf
     final private String chrid;
     public boolean clockwise = false;
     public boolean deeper = true;
+    public boolean shoreline = false;
 
     public NWorldExplorerProp(String username, String chrid) {
         this.username = username;
@@ -30,6 +31,8 @@ public class NWorldExplorerProp implements JConf
             clockwise = (Boolean) values.get("clockwise");
         if (values.get("deeper") != null)
             deeper = (Boolean) values.get("deeper");
+        if (values.get("shoreline") != null)
+            shoreline = (Boolean) values.get("shoreline");
 
     }
 
@@ -72,6 +75,7 @@ public class NWorldExplorerProp implements JConf
         jexplorer.put("chrid", chrid);
         jexplorer.put("clockwise", clockwise);
         jexplorer.put("deeper", deeper);
+        jexplorer.put("shoreline", shoreline);
         return jexplorer;
     }
 

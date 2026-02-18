@@ -15,6 +15,7 @@ public class WorldExplorerWnd extends Window implements Checkable {
     CheckBox unclockwise;
     CheckBox deep;
     CheckBox shallow;
+    CheckBox shoreline;
 
     public WorldExplorerWnd() {
         super(new Coord(200,200), L10n.get("explorer.wnd_title"));
@@ -57,6 +58,7 @@ public class WorldExplorerWnd extends Window implements Checkable {
             public void set(boolean a) {
                 super.set(a);
                 shallow.a = !a;
+                shoreline.a = false;
             }
 
         }, prev.pos("bl").add(UI.scale(0,5)));
@@ -70,6 +72,21 @@ public class WorldExplorerWnd extends Window implements Checkable {
             public void set(boolean a) {
                 super.set(a);
                 deep.a = !a;
+                shoreline.a = false;
+            }
+
+        }, prev.pos("bl").add(UI.scale(0,5)));
+
+        prev = add(shoreline = new CheckBox(L10n.get("explorer.shoreline"))
+        {
+            {
+                a = finalStartprop.shoreline;
+            }
+            @Override
+            public void set(boolean a) {
+                super.set(a);
+                deep.a = !a;
+                shallow.a = !a;
             }
 
         }, prev.pos("bl").add(UI.scale(0,5)));
@@ -83,6 +100,7 @@ public class WorldExplorerWnd extends Window implements Checkable {
                 if (prop != null) {
                     prop.deeper = deep.a;
                     prop.clockwise = clockwise.a;
+                    prop.shoreline = shoreline.a;
                     NWorldExplorerProp.set(prop);
                 }
                 isReady = true;
