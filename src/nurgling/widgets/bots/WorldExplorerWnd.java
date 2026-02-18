@@ -92,6 +92,15 @@ public class WorldExplorerWnd extends Window implements Checkable {
         }, prev.pos("bl").add(UI.scale(0,5)));
 
 
+        // Debug log button
+        prev = add(new Button(UI.scale(150), "Show Debug Log"){
+            @Override
+            public void click() {
+                super.click();
+                openDebugLog();
+            }
+        }, prev.pos("bl").add(UI.scale(0,5)));
+
         prev = add(new Button(UI.scale(150), L10n.get("botwnd.start")){
             @Override
             public void click() {
@@ -124,5 +133,21 @@ public class WorldExplorerWnd extends Window implements Checkable {
         }
         super.wdgmsg(msg, args);
     }
+    
+    private void openDebugLog() {
+        try {
+            nurgling.widgets.DebugLogWindow debugLog = new nurgling.widgets.DebugLogWindow("WorldExplorer Debug Log");
+            NUtils.getGameUI().add(debugLog, UI.scale(650, 200));
+            debugLog.pack();
+            debugLog.show();
+            debugLog.raise();
+            debugLog.addMessage("Debug Log opened", nurgling.widgets.DebugLogWindow.LogLevel.INFO);
+            debugLog.addMessage("WorldExplorer settings window is open", nurgling.widgets.DebugLogWindow.LogLevel.SUCCESS);
+            NUtils.getGameUI().ui.gui.msg("Debug Log window opened!");
+        } catch (Exception e) {
+            NUtils.getGameUI().ui.gui.msg("Failed to open Debug Log: " + e.getMessage());
+        }
+    }
+    
     public NWorldExplorerProp prop = null;
 }
