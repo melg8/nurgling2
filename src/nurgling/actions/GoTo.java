@@ -141,7 +141,7 @@ public class GoTo implements Action
      * - Cliff edges can cut through tiles diagonally
      * - Clicking directly into a cliff-adjacent tile may not work
      * - Clicking diagonally often works better
-     * - May need multiple click attempts with waits for climb animations
+     * - May need multiple click attempts
      * 
      * @return true if successfully moved with alternative click
      */
@@ -162,7 +162,7 @@ public class GoTo implements Action
                 );
                 
                 gui.map.wdgmsg("click", Coord.z, offsetTarget.floor(OCache.posres), 1, 0);
-                Thread.sleep(300); // Wait for climb animation to start
+                Thread.sleep(150); // Short wait for movement to start
                 if (hasMoved(playerTile, gui)) {
                     return true;
                 }
@@ -171,7 +171,7 @@ public class GoTo implements Action
                 Coord farTarget = playerTile.add(dir.mul(2));
                 Coord2d farCoord = farTarget.mul(MCache.tilesz).add(MCache.tilehsz);
                 gui.map.wdgmsg("click", Coord.z, farCoord.floor(OCache.posres), 1, 0);
-                Thread.sleep(300);
+                Thread.sleep(150);
                 if (hasMoved(playerTile, gui)) {
                     return true;
                 }
@@ -183,7 +183,7 @@ public class GoTo implements Action
                 Coord horizTarget = playerTile.add(dir.x, 0);
                 Coord2d horizCoord = horizTarget.mul(MCache.tilesz).add(MCache.tilehsz);
                 gui.map.wdgmsg("click", Coord.z, horizCoord.floor(OCache.posres), 1, 0);
-                Thread.sleep(300);
+                Thread.sleep(150);
                 if (hasMoved(playerTile, gui)) {
                     // Now click to original target
                     gui.map.wdgmsg("click", Coord.z, originalTarget.floor(OCache.posres), 1, 0);
@@ -195,7 +195,7 @@ public class GoTo implements Action
                 Coord vertTarget = playerTile.add(0, dir.y);
                 Coord2d vertCoord = vertTarget.mul(MCache.tilesz).add(MCache.tilehsz);
                 gui.map.wdgmsg("click", Coord.z, vertCoord.floor(OCache.posres), 1, 0);
-                Thread.sleep(300);
+                Thread.sleep(150);
                 if (hasMoved(playerTile, gui)) {
                     gui.map.wdgmsg("click", Coord.z, originalTarget.floor(OCache.posres), 1, 0);
                     return true;
@@ -208,15 +208,11 @@ public class GoTo implements Action
                 Coord cardTarget = playerTile.add(cardDir);
                 Coord2d cardCoord = cardTarget.mul(MCache.tilesz).add(MCache.tilehsz);
                 gui.map.wdgmsg("click", Coord.z, cardCoord.floor(OCache.posres), 1, 0);
-                Thread.sleep(200);
+                Thread.sleep(100);
                 if (hasMoved(playerTile, gui)) {
                     // Click to original target after moving
                     gui.map.wdgmsg("click", Coord.z, originalTarget.floor(OCache.posres), 1, 0);
                     return true;
-                }
-                // Return to original position check
-                if (!hasMoved(playerTile, gui)) {
-                    // Didn't move, try next direction
                 }
             }
             

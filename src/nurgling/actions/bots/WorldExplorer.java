@@ -7,6 +7,7 @@ import nurgling.actions.GoTo;
 import nurgling.actions.Results;
 import nurgling.conf.NPrepBlocksProp;
 import nurgling.conf.NWorldExplorerProp;
+import nurgling.overlays.NWorldExplorerDebugOverlay;
 import nurgling.tasks.WaitCheckable;
 import nurgling.tools.NAlias;
 import nurgling.tools.NParser;
@@ -192,6 +193,11 @@ public class WorldExplorer implements Action {
     private Results runShoreline(NGameUI gui, boolean clockwise) throws InterruptedException {
         GameUI gameui = NUtils.getGameUI();
         
+        // Create debug overlay for visualization
+        NWorldExplorerDebugOverlay debugOverlay = new NWorldExplorerDebugOverlay(gameui.ui.sess.glob.map);
+        
+        try {
+
         // Find starting position on land next to water
         Coord pltc = NUtils.player().rc.div(MCache.tilesz).floor();
         Coord startTc = null;
@@ -240,13 +246,13 @@ public class WorldExplorer implements Action {
                 }
             }
         }
-        
+
         // Buffer to prevent cycling
         Coord[] buffer = new Coord[200];
         int bufIdx = 0;
         int stuckCount = 0;
         Coord lastPos = null;
-        
+
         // Track cliff jump detection (successful jump down or up)
         Coord jumpFromPos = null;        // Position we jumped from
         Coord jumpToPos = null;          // Position we jumped to
@@ -267,6 +273,12 @@ public class WorldExplorer implements Action {
             } else {
                 stuckCount = 0;
             }
+            
+            // Mark current position as visited
+            debugOverlay.markVisited(pltc);
+            
+            // Process pending overlay operations
+            debugOverlay.processPendingOperations();
             
             // Detect successful jump: if we're at a new position that was previously blocked
             // This means we successfully jumped down or up
@@ -345,6 +357,7 @@ public class WorldExplorer implements Action {
                 // Check if this target is temporarily blocked due to cliff jump detection
                 // This prevents jumping back up/down immediately after jumping down/up
                 if (blockedTarget != null && cand.equals(blockedTarget)) {
+                    debugOverlay.markWall(cand);
                     continue;  // Skip this target - it's temporarily blocked
                 }
 
@@ -357,17 +370,23 @@ public class WorldExplorer implements Action {
                         // Enable cliff avoidance for smarter movement along cliff edges
                         buffer[bufIdx++ % 200] = pltc;
                         Coord2d targetCoord = cand.mul(MCache.tilesz).add(MCache.tilehsz);
+                        
+                        // Mark target for debugging
+                        debugOverlay.markTarget(cand);
 
                         // Try to move with cliff avoidance
                         GoTo goTo = new GoTo(targetCoord, true);
-                        Results result = goTo.run(gui);
+                        goTo.run(gui);
 
-                        // Check if movement was successful
+                        // Check if movement was successful - player must be in the target tile
                         Coord newPlayerTile = NUtils.player().rc.div(MCache.tilesz).floor();
-                        if (!newPlayerTile.equals(pltc)) {
+                        
+                        if (newPlayerTile.equals(cand)) {
+                            // Successfully reached target tile
                             curDir = tryDir;
                             moved = true;
-                            
+                            debugOverlay.markVisited(cand);
+
                             // Track if this was a blocked target that we successfully reached (jump detected)
                             if (blockedTarget != null && cand.equals(blockedTarget)) {
                                 // We reached a previously blocked target - this was a jump!
@@ -375,54 +394,51 @@ public class WorldExplorer implements Action {
                                 jumpToPos = cand;
                             }
                         } else {
-                            // Movement failed - player didn't move
+                            // Movement failed - player didn't reach target tile
                             // This could be due to cliff edge blocking - try alternative strategies
-                            gameui.ui.gui.msg("Stuck at cliff, trying alternative move...");
                             
                             // Track failed target for jump detection
                             if (blockedTarget == null) {
                                 blockedTarget = cand;
                                 jumpFromPos = pltc;
                             }
-                            
+
                             if (GoTo.tryAlternativeMove(gui, targetCoord, pltc)) {
                                 // Alternative move succeeded
                                 newPlayerTile = NUtils.player().rc.div(MCache.tilesz).floor();
-                                if (!newPlayerTile.equals(pltc)) {
+                                if (newPlayerTile.equals(cand)) {
                                     curDir = tryDir;
                                     moved = true;
-                                    gameui.ui.gui.msg("Alternative move succeeded!");
-                                    
+                                    debugOverlay.markVisited(cand);
+
                                     // Track if this was a blocked target that we successfully reached
                                     if (cand.equals(blockedTarget)) {
                                         // Jump detected!
                                         jumpFromPos = pltc;
                                         jumpToPos = cand;
                                     }
+                                } else {
+                                    // Alternative move didn't reach target - mark as wall
+                                    debugOverlay.markWall(cand);
                                 }
-                            }
-
-                            // If still stuck, wait for climb animation to complete
-                            if (!moved) {
-                                Thread.sleep(500); // Wait for any pending climb animation
-                                newPlayerTile = NUtils.player().rc.div(MCache.tilesz).floor();
-                                if (!newPlayerTile.equals(pltc)) {
-                                    // Player started moving after delay
-                                    curDir = tryDir;
-                                    moved = true;
-                                    
-                                    // Track jump
-                                    if (cand.equals(blockedTarget)) {
-                                        jumpFromPos = pltc;
-                                        jumpToPos = cand;
-                                    }
-                                }
+                            } else {
+                                // Alternative move failed - mark as wall
+                                debugOverlay.markWall(cand);
                             }
                         }
+                    } else {
+                        // Tile is blocked by obstacle - mark as wall
+                        debugOverlay.markWall(cand);
                     }
                     // If blocked by obstacle, skip and try next direction (treat as wall)
+                } else {
+                    // Water tile - mark as wall
+                    debugOverlay.markWall(cand);
                 }
             }
+            
+            // Process pending overlay operations after each movement attempt
+            debugOverlay.processPendingOperations();
 
             if(!moved) {
                 // Completely stuck, try any adjacent land tile that's not blocked
@@ -433,17 +449,36 @@ public class WorldExplorer implements Action {
                         buffer[bufIdx++ % 200] = pltc;
                         Coord2d targetCoord = cand.mul(MCache.tilesz).add(MCache.tilehsz);
                         
+                        // Mark target for debugging
+                        debugOverlay.markTarget(cand);
+
                         // Try alternative movement for stuck situations
                         if (GoTo.tryAlternativeMove(gui, targetCoord, pltc)) {
                             Coord newPlayerTile = NUtils.player().rc.div(MCache.tilesz).floor();
-                            if (!newPlayerTile.equals(pltc)) {
+                            if (newPlayerTile.equals(cand)) {
                                 curDir = d;
                                 moved = true;
+                                debugOverlay.markVisited(cand);
                                 break;
+                            } else {
+                                // Didn't reach target - mark as wall
+                                debugOverlay.markWall(cand);
                             }
+                        } else {
+                            // Alternative move failed - mark as wall
+                            debugOverlay.markWall(cand);
                         }
                     }
                 }
+            }
+            
+            // Process pending overlay operations after fallback movement
+            debugOverlay.processPendingOperations();
+        }
+        } finally {
+            // Clear debug overlays when bot stops
+            if (debugOverlay != null) {
+                debugOverlay.clearAll();
             }
         }
     }
