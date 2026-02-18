@@ -39,7 +39,8 @@ public class CliffClimberTest implements Action {
     };
     
     private CliffClimberDebugOverlay debugOverlay;
-    private int lookDir = 0;  // Initial look direction
+    private int lookDir = 1;  // Default look direction (North)
+    private Coord lastPlayerPos = null;  // Track player position for direction detection
     
     @Override
     public Results run(NGameUI gui) throws InterruptedException {
@@ -64,26 +65,26 @@ public class CliffClimberTest implements Action {
             // Get initial look direction from player
             lookDir = getLookDirection();
             
-            gui.ui.gui.msg("CliffClimberTest started. Direction: " + dirName(lookDir));
-            gui.ui.gui.msg("Visualization active - move around to see cliff analysis");
-            gui.ui.gui.msg("Look around to change direction");
+            gui.ui.gui.msg("CliffClimberTest started. Visualization active.");
+            gui.ui.gui.msg("Move around - visualization will follow your movement direction");
             
             // Main loop - continuously update visualization
-            Coord lastPlayerPos = null;
+            lastPlayerPos = NUtils.player().rc.div(MCache.tilesz).floor();  // Initialize position
             int lastLookDir = lookDir;
             while (true) {
                 Coord playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
-                lookDir = getLookDirection();  // Update look direction continuously
                 
-                // Update visualization if player moved or direction changed
-                if (!playerPos.equals(lastPlayerPos) || lookDir != lastLookDir) {
-                    updateVisualization(playerPos, gui);
+                // Update look direction based on player movement
+                if (!playerPos.equals(lastPlayerPos)) {
+                    lookDir = getLookDirection(playerPos, lastPlayerPos);
                     lastPlayerPos = playerPos;
-                    lastLookDir = lookDir;
                 }
                 
-                // Process overlay operations safely
-                debugOverlay.processPendingOperations();
+                // Update visualization if direction changed
+                if (lookDir != lastLookDir) {
+                    updateVisualization(playerPos, gui);
+                    lastLookDir = lookDir;
+                }
                 
                 Thread.sleep(100);
             }
@@ -91,12 +92,8 @@ public class CliffClimberTest implements Action {
             // Clear overlays safely
             if (debugOverlay != null) {
                 debugOverlay.clearAll();
-                // Process any remaining operations before clearing
-                for (int i = 0; i < 10; i++) {
-                    debugOverlay.processPendingOperations();
-                    try { Thread.sleep(50); } catch (Exception e) {}
-                }
             }
+            lastPlayerPos = null;  // Reset position tracker
         }
     }
     
@@ -105,9 +102,6 @@ public class CliffClimberTest implements Action {
      */
     private void updateVisualization(Coord playerPos, NGameUI gui) {
         try {
-            // Clear previous visualization
-            debugOverlay.clearAll();
-            
             // Get path cells (20 cells ahead in look direction)
             List<Coord> pathCells = getPathCells(playerPos, 20);
             
@@ -118,28 +112,29 @@ public class CliffClimberTest implements Action {
                 // Analyze cliff pattern
                 CliffAnalysis analysis = analyzeCliff(firstCliff, lookDir, gui);
                 
-                // Mark cliff cells
-                debugOverlay.markCliffCells(analysis.cliffCells);
+                // Set cliff cells
+                debugOverlay.setCliffCells(analysis.cliffCells);
                 
-                // Mark neighbor cells
-                debugOverlay.markNeighborCells(analysis.neighborCells);
+                // Set neighbor cells
+                debugOverlay.setNeighborCells(analysis.neighborCells);
                 
-                // Mark target
-                if (analysis.targetCell != null) {
-                    debugOverlay.markTarget(analysis.targetCell);
-                }
+                // Set target
+                debugOverlay.setTargetCell(analysis.targetCell);
                 
-                // Draw path line
+                // Set path line (first 5 cells)
                 Coord endPos = pathCells.get(Math.min(pathCells.size() - 1, 5));
-                debugOverlay.drawPathLine(playerPos, endPos);
+                debugOverlay.setPath(playerPos, endPos);
             } else {
-                // No cliff - just show path
+                // No cliff - just show path (first 5 cells)
                 Coord endPos = pathCells.get(Math.min(pathCells.size() - 1, 5));
-                debugOverlay.drawPathLine(playerPos, endPos);
+                debugOverlay.setPath(playerPos, endPos);
             }
             
-            // Mark path cells
-            debugOverlay.markPathCells(pathCells);
+            // Set all path cells
+            debugOverlay.setPathCells(pathCells);
+            
+            // Update overlays
+            debugOverlay.update();
             
         } catch (Exception e) {
             // Ignore visualization errors
@@ -270,14 +265,33 @@ public class CliffClimberTest implements Action {
     }
     
     /**
-     * Get player look direction (0-3) based on time (for demo purposes)
-     * Direction cycles every 4 seconds: 0=East, 1=North, 2=West, 3=South
-     * TODO: Replace with actual camera angle detection
+     * Get movement direction based on player position change
+     * @param currentPos Current player position
+     * @param lastPos Previous player position
+     * @return Direction: 0=East, 1=North, 2=West, 3=South
+     */
+    private int getLookDirection(Coord currentPos, Coord lastPos) {
+        int dx = currentPos.x - lastPos.x;
+        int dy = currentPos.y - lastPos.y;
+        
+        // Determine primary direction of movement
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Horizontal movement
+            return (dx > 0) ? 0 : 2;  // East or West
+        } else if (dy != 0) {
+            // Vertical movement
+            return (dy < 0) ? 1 : 3;  // North or South (Y is inverted: negative = up/north)
+        }
+        
+        // No significant movement - keep current direction
+        return lookDir;
+    }
+    
+    /**
+     * Get initial look direction (defaults to North)
      */
     private int getLookDirection() {
-        // Cycle through directions every second for testing
-        long time = System.currentTimeMillis() / 1000;
-        return (int)(time % 4);
+        return 1;  // North
     }
     
     private String dirName(int dir) {

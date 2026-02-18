@@ -4,26 +4,25 @@ import haven.*;
 import haven.render.*;
 import java.awt.Color;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Debug overlay for CliffClimberTest bot.
  * Shows path line, cliff cells, neighbor cells, and target points.
  * 
- * THREAD SAFETY: All overlay operations are queued and executed safely to avoid
- * ConcurrentModificationException during game tick.
+ * THREAD SAFETY: Uses batched updates to avoid ConcurrentModificationException.
+ * All updates happen in a single batch per frame.
  */
 public class CliffClimberDebugOverlay {
     private final MCache map;
     
-    // Queue for pending overlay operations
-    private final Queue<Runnable> pendingOperations = new ConcurrentLinkedQueue<>();
+    // Current state
+    private Set<Coord> cliffCells = new HashSet<>();
+    private Set<Coord> neighborCells = new HashSet<>();
+    private Set<Coord> targetCells = new HashSet<>();
+    private Set<Coord> pathCells = new HashSet<>();
     
-    // Overlay maps
-    private final Map<Coord, MCache.Overlay> cliffOverlays = new HashMap<>();
-    private final Map<Coord, MCache.Overlay> neighborOverlays = new HashMap<>();
-    private final Map<Coord, MCache.Overlay> targetOverlays = new HashMap<>();
-    private final Map<Coord, MCache.Overlay> pathOverlays = new HashMap<>();
+    // Active overlays (key = "type_x_y")
+    private Map<String, MCache.Overlay> activeOverlays = new HashMap<>();
     
     // Colors
     private static final Color CLIFF_COLOR = new Color(255, 100, 100, 150);      // Red - cliff cells
@@ -36,17 +35,75 @@ public class CliffClimberDebugOverlay {
     }
     
     /**
-     * Process pending operations safely.
+     * Process all pending updates and sync overlays with current state.
      * Call this from main thread when it's safe to modify overlays.
      */
-    public void processPendingOperations() {
-        Runnable op;
-        while ((op = pendingOperations.poll()) != null) {
-            try {
-                op.run();
-            } catch (Exception e) {
-                // Ignore errors during overlay operations
+    public void update() {
+        try {
+            // Update cliff overlays
+            syncOverlays(cliffCells, CLIFF_COLOR, "cliff_");
+            
+            // Update neighbor overlays
+            syncOverlays(neighborCells, NEIGHBOR_COLOR, "neighbor_");
+            
+            // Update target overlays
+            syncOverlays(targetCells, TARGET_COLOR, "target_");
+            
+            // Update path overlays
+            syncOverlays(pathCells, PATH_COLOR, "path_");
+        } catch (Exception e) {
+            // Ignore overlay errors
+        }
+    }
+    
+    /**
+     * Sync overlays with desired cell set
+     */
+    private void syncOverlays(Set<Coord> desiredCells, Color color, String prefix) {
+        // Find cells to remove (in active but not in desired)
+        List<String> toRemove = new ArrayList<>();
+        for (String key : activeOverlays.keySet()) {
+            if (key.startsWith(prefix)) {
+                Coord cell = parseCoord(key.substring(prefix.length()));
+                if (cell != null && !desiredCells.contains(cell)) {
+                    toRemove.add(key);
+                }
             }
+        }
+        
+        // Remove old overlays
+        for (String key : toRemove) {
+            MCache.Overlay overlay = activeOverlays.remove(key);
+            if (overlay != null) {
+                try {
+                    overlay.destroy();
+                } catch (Exception e) {
+                    // Ignore
+                }
+            }
+        }
+        
+        // Add new overlays
+        for (Coord cell : desiredCells) {
+            String key = prefix + cell.x + "_" + cell.y;
+            if (!activeOverlays.containsKey(key)) {
+                try {
+                    Area area = new Area(cell, cell.add(1, 1));
+                    MCache.Overlay overlay = map.new Overlay(area, createOverlayInfo(color));
+                    activeOverlays.put(key, overlay);
+                } catch (Exception e) {
+                    // Ignore
+                }
+            }
+        }
+    }
+    
+    private Coord parseCoord(String s) {
+        try {
+            String[] parts = s.split("_");
+            return new Coord(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+        } catch (Exception e) {
+            return null;
         }
     }
     
@@ -54,106 +111,59 @@ public class CliffClimberDebugOverlay {
      * Clear all overlays safely
      */
     public void clearAll() {
-        pendingOperations.add(() -> {
-            clearMap(cliffOverlays);
-            clearMap(neighborOverlays);
-            clearMap(targetOverlays);
-            clearMap(pathOverlays);
-        });
-        // Don't process immediately - let the main loop handle it
+        cliffCells.clear();
+        neighborCells.clear();
+        targetCells.clear();
+        pathCells.clear();
+        update();  // Process immediately
     }
     
-    private void clearMap(Map<Coord, MCache.Overlay> overlayMap) {
-        List<MCache.Overlay> toDestroy = new ArrayList<>(overlayMap.values());
-        overlayMap.clear();
-        for (MCache.Overlay overlay : toDestroy) {
-            try {
-                overlay.destroy();
-            } catch (Exception e) {
-                // Ignore
-            }
+    /**
+     * Set cliff cells
+     */
+    public void setCliffCells(Collection<Coord> cells) {
+        cliffCells = new HashSet<>(cells);
+    }
+    
+    /**
+     * Set neighbor cells
+     */
+    public void setNeighborCells(Collection<Coord> cells) {
+        neighborCells = new HashSet<>(cells);
+    }
+    
+    /**
+     * Set target cell
+     */
+    public void setTargetCell(Coord cell) {
+        targetCells.clear();
+        if (cell != null) {
+            targetCells.add(cell);
         }
     }
     
     /**
-     * Mark cliff cells in red
+     * Set path cells
      */
-    public void markCliffCells(Collection<Coord> cells) {
-        pendingOperations.add(() -> {
-            clearMap(cliffOverlays);
-            for (Coord cell : cells) {
-                markCell(cell, CLIFF_COLOR, cliffOverlays);
-            }
-        });
+    public void setPathCells(Collection<Coord> cells) {
+        pathCells = new HashSet<>(cells);
     }
     
     /**
-     * Mark neighbor cells in yellow
+     * Set path from start to end
      */
-    public void markNeighborCells(Collection<Coord> cells) {
-        pendingOperations.add(() -> {
-            clearMap(neighborOverlays);
-            for (Coord cell : cells) {
-                markCell(cell, NEIGHBOR_COLOR, neighborOverlays);
-            }
-        });
-    }
-    
-    /**
-     * Mark target point in green
-     */
-    public void markTarget(Coord cell) {
-        pendingOperations.add(() -> {
-            clearMap(targetOverlays);
-            markCell(cell, TARGET_COLOR, targetOverlays);
-        });
-    }
-    
-    /**
-     * Mark path cells in blue
-     */
-    public void markPathCells(Collection<Coord> cells) {
-        pendingOperations.add(() -> {
-            clearMap(pathOverlays);
-            for (Coord cell : cells) {
-                markCell(cell, PATH_COLOR, pathOverlays);
-            }
-        });
-    }
-    
-    private void markCell(Coord cell, Color color, Map<Coord, MCache.Overlay> overlayMap) {
-        try {
-            Area area = new Area(cell, cell.add(1, 1));
-            MCache.Overlay overlay = map.new Overlay(area, createOverlayInfo(color));
-            overlayMap.put(cell, overlay);
-        } catch (Exception e) {
-            // Ignore
+    public void setPath(Coord start, Coord end) {
+        pathCells.clear();
+        
+        int dx = Integer.compare(end.x, start.x);
+        int dy = Integer.compare(end.y, start.y);
+        
+        Coord current = start;
+        while (!current.equals(end)) {
+            pathCells.add(current);
+            current = current.add(dx, dy);
         }
-    }
-    
-    /**
-     * Draw a line showing the planned path by marking cells
-     */
-    public void drawPathLine(Coord start, Coord end) {
-        pendingOperations.add(() -> {
-            try {
-                // Clear previous path overlays
-                clearMap(pathOverlays);
-                
-                // Mark path cells between start and end
-                int dx = Integer.compare(end.x, start.x);
-                int dy = Integer.compare(end.y, start.y);
-                
-                Coord current = start;
-                while (!current.equals(end)) {
-                    markCell(current, PATH_COLOR, pathOverlays);
-                    current = current.add(dx, dy);
-                }
-                markCell(end, PATH_COLOR, pathOverlays);
-            } catch (Exception e) {
-                // Ignore
-            }
-        });
+        pathCells.add(end);
     }
     
     private MCache.OverlayInfo createOverlayInfo(Color color) {
