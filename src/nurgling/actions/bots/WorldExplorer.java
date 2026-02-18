@@ -73,10 +73,12 @@ public class WorldExplorer implements Action {
             prop = w.prop;
             
             // Create debug log window and set thread-local reference
+            // Add it directly without WaitCheckable since we don't need user confirmation
             debugLog = new DebugLogWindow("WorldExplorer Debug Log");
-            // Position window next to the bot window (which is at 200, 200)
             Coord debugPos = UI.scale(650, 200);
             NUtils.getGameUI().add(debugLog, debugPos);
+            debugLog.pack();  // Ensure proper sizing
+            debugLog.show();  // Make sure it's visible
             setDebugLog(debugLog);
             debugLog.addMessage("WorldExplorer started", DebugLogWindow.LogLevel.INFO);
             
