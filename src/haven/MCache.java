@@ -363,12 +363,16 @@ public class MCache implements MapSource {
 	public Overlay(Area a, OverlayInfo id) {
 	    this.a = a;
 	    this.id = id;
-	    ols.add(this);
+	    synchronized(ols) {
+		ols.add(this);
+	    }
 	    olseq++;
 	}
 
 	public void destroy() {
-	    ols.remove(this);
+	    synchronized(ols) {
+		ols.remove(this);
+	    }
 	    olseq++;
 	}
 
@@ -1281,13 +1285,15 @@ public class MCache implements MapSource {
 		    buf[a.ri(tc)] = gbuf[(tc.x - gt.ul.x) + ((tc.y - gt.ul.y) * cmaps.x)];
 	    }
 	}
-	for(Overlay lol : ols) {
-	    if(lol.id != id)
-		continue;
-	    Area la = lol.a.overlap(a);
-	    if(la != null) {
-		for(Coord lc : la)
-		    buf[a.ri(lc)] = true;
+	synchronized(ols) {
+	    for(Overlay lol : new ArrayList<Overlay>(ols)) {
+		if(lol.id != id)
+		    continue;
+		Area la = lol.a.overlap(a);
+		if(la != null) {
+		    for(Coord lc : la)
+			buf[a.ri(lc)] = true;
+		}
 	    }
 	}
     }
