@@ -12,19 +12,41 @@ import nurgling.tasks.WaitCheckable;
 import nurgling.tools.NAlias;
 import nurgling.tools.NParser;
 import nurgling.widgets.NMiniMap;
+import nurgling.widgets.DebugLogWindow;
 
 import static haven.Coord.of;
 
 public class WorldExplorer implements Action {
     // Directions: 0=East, 1=North, 2=West, 3=South
     public static Coord[] dirVectors = {of(1, 0), of(0, -1), of(-1, 0), of(0, 1)};
-    
+
     // For original water exploration mode
     public static Coord[] counterclockwise = {of(1, 0), of(0, 1), of(-1, 0), of(0, -1)};
     public static Coord[][] counternearest = {{of(0, 1),of(1, 1),of(2, 1)}, {of(-1, 0),of(-1, 1),of(-1, 2)}, {of(0, -1),of(-1, -1),of(-2, -1)}, {of(1, 0),of(1, -1),of(1, -2)}};
     public static Coord[] clockwise = {of(1, 0), of(0, -1), of(-1, 0), of(0, 1)};
     public static Coord[][] nearest = {{of(0, -1),of(1, -1),of(2, -1)}, {of(-1, 0),of(-1, -1),of(-1, -2)}, {of(0, 1),of(-1, 1),of(-2, 1)}, {of(1, 0),of(1, 1),of(1, 2)}};
     
+    // Thread-local debug log reference
+    private static final ThreadLocal<DebugLogWindow> debugLogRef = new ThreadLocal<>();
+    
+    // Set debug log for current thread
+    public static void setDebugLog(DebugLogWindow log) {
+        debugLogRef.set(log);
+    }
+    
+    // Get debug log for current thread
+    public static DebugLogWindow getDebugLog() {
+        return debugLogRef.get();
+    }
+    
+    // Log a message
+    public static void log(String message, DebugLogWindow.LogLevel level) {
+        DebugLogWindow log = getDebugLog();
+        if (log != null) {
+            log.addMessage(message, level);
+        }
+    }
+
     // Turn left (counter-clockwise): 0->1->2->3->0
     private int turnLeft(int dir) {
         return (dir + 1) % 4;
@@ -45,9 +67,16 @@ public class WorldExplorer implements Action {
 
         nurgling.widgets.bots.WorldExplorerWnd w = null;
         NWorldExplorerProp prop = null;
+        DebugLogWindow debugLog = null;
         try {
             NUtils.getUI().core.addTask(new WaitCheckable( NUtils.getGameUI().add((w = new nurgling.widgets.bots.WorldExplorerWnd()), UI.scale(200,200))));
             prop = w.prop;
+            
+            // Create debug log window and set thread-local reference
+            debugLog = new DebugLogWindow("WorldExplorer Debug Log");
+            NUtils.getGameUI().add(debugLog, UI.scale(200, 500));
+            setDebugLog(debugLog);
+            debugLog.addMessage("WorldExplorer started", DebugLogWindow.LogLevel.INFO);
         }
         catch (InterruptedException e)
         {
@@ -56,6 +85,9 @@ public class WorldExplorer implements Action {
         finally {
             if(w!=null)
                 w.destroy();
+            if(debugLog != null)
+                debugLog.destroy();
+            setDebugLog(null);
         }
         if(prop == null)
         {
@@ -192,16 +224,18 @@ public class WorldExplorer implements Action {
     // Water stays on one side (left if clockwise, right if counter-clockwise)
     private Results runShoreline(NGameUI gui, boolean clockwise) throws InterruptedException {
         GameUI gameui = NUtils.getGameUI();
-        
+
         // Create debug overlay for visualization
         NWorldExplorerDebugOverlay debugOverlay = new NWorldExplorerDebugOverlay(gameui.ui.sess.glob.map);
-        
+
         try {
+        
+        log("Shoreline exploration started", DebugLogWindow.LogLevel.INFO);
 
         // Find starting position on land next to water
         Coord pltc = NUtils.player().rc.div(MCache.tilesz).floor();
         Coord startTc = null;
-        
+
         for(int j = 0; j < 50 && startTc == null; j++) {
             for (int i = 0; i < 4 && startTc == null; i++) {
                 Coord cand = pltc.add(dirVectors[i].mul(j));
@@ -211,10 +245,13 @@ public class WorldExplorer implements Action {
                 }
             }
         }
-        
+
         if(startTc == null) {
+            log("No shoreline found nearby", DebugLogWindow.LogLevel.ERROR);
             return Results.ERROR("No shoreline found nearby");
         }
+
+        log("Starting shoreline follow at " + startTc, DebugLogWindow.LogLevel.SUCCESS);
         
         // Move to starting position
         new GoTo(startTc.mul(MCache.tilesz).add(MCache.tilehsz)).run(gui);
@@ -386,16 +423,19 @@ public class WorldExplorer implements Action {
                             curDir = tryDir;
                             moved = true;
                             debugOverlay.markVisited(cand);
+                            log("Moved to " + cand, DebugLogWindow.LogLevel.INFO);
 
                             // Track if this was a blocked target that we successfully reached (jump detected)
                             if (blockedTarget != null && cand.equals(blockedTarget)) {
                                 // We reached a previously blocked target - this was a jump!
                                 jumpFromPos = pltc;
                                 jumpToPos = cand;
+                                log("Jump detected: " + pltc + " -> " + cand, DebugLogWindow.LogLevel.SUCCESS);
                             }
                         } else {
                             // Movement failed - player didn't reach target tile
                             // This could be due to cliff edge blocking - try alternative strategies
+                            log("Movement failed to " + cand + ", trying alternative", DebugLogWindow.LogLevel.WARNING);
                             
                             // Track failed target for jump detection
                             if (blockedTarget == null) {
