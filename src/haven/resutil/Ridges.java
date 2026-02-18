@@ -38,6 +38,8 @@ import haven.Tiler.VertFactory;
 import haven.Surface.MeshVertex;
 import static haven.Utils.clip;
 import nurgling.*;
+import nurgling.widgets.NMiniMapWnd;
+import haven.render.*;
 
 public class Ridges implements MapMesh.ConsHooks {
     private static final float EPSILON = 0.01f;
@@ -50,6 +52,12 @@ public class Ridges implements MapMesh.ConsHooks {
     private Vertex[][] edges, edgec;
     private float[] edgeo;
     private final MPart[] gnd, ridge;
+    
+    // Cliff highlight material - same as Hurricane
+    public static final Pipe.Op cliffHighlightMat = Pipe.Op.compose(
+        new MixColor(new java.awt.Color(255, 0, 0, 200)),
+        new HueMod(0, 0, 1)
+    );
 
     public interface RidgeTile {
 	public double breakz();
@@ -372,6 +380,7 @@ public class Ridges implements MapMesh.ConsHooks {
 	}
 	mkfaces(gv, srfi);
 	gnd[ms.ts.o(tc)] = new MPart(tc, tc.add(m.ul), gv, tcx, tcy, srfi);
+	applyCliffHighlight(tc, gnd[ms.ts.o(tc)]);
 
 	Vertex[] cls = new Vertex[] {ms.new Vertex(close)};
 	if(edgelc(tc, dir))
@@ -402,6 +411,7 @@ public class Ridges implements MapMesh.ConsHooks {
 	}
 	mkfaces(gv, srfi);
 	gnd[ms.ts.o(tc)] = new MPart(tc, tc.add(m.ul), gv, tcx, tcy, srfi);
+	applyCliffHighlight(tc, gnd[ms.ts.o(tc)]);
 
 	if(edgelc(tc, dir))
 	    ridge[ms.ts.o(tc)] = connect(tc, edges[eo(tc, dir)], edges[eo(tc, dir + 2)]);
@@ -431,6 +441,7 @@ public class Ridges implements MapMesh.ConsHooks {
 	}
 	mkfaces(gv, d1rfi);
 	gnd[ms.ts.o(tc)] = new MPart(tc, tc.add(m.ul), gv, tcx, tcy, d1rfi);
+	applyCliffHighlight(tc, gnd[ms.ts.o(tc)]);
 
 	if(edgelc(tc, dir))
 	    ridge[ms.ts.o(tc)] = connect(tc, edges[eo(tc, dir)], edges[eo(tc, (dir + 1) % 4)]);
@@ -465,6 +476,7 @@ public class Ridges implements MapMesh.ConsHooks {
 	}
 	mkfaces(gv, d2rfi);
 	gnd[ms.ts.o(tc)] = new MPart(tc, tc.add(m.ul), gv, tcx, tcy, d2rfi);
+	applyCliffHighlight(tc, gnd[ms.ts.o(tc)]);
 
 	RPart r1, r2;
 	if(edgelc(tc, dir))
@@ -769,5 +781,22 @@ public class Ridges implements MapMesh.ConsHooks {
 	Ridges r = map.getcut(tc.div(MCache.cutsz)).data(id);
 	tc = tc.mod(MCache.cutsz);
 	return(r.edgeo[(2 * r.eo(tc, edge)) + (hi?1:0)]);
+    }
+    
+    /**
+     * Apply cliff highlight material if the setting is enabled.
+     * Applied to all tiles when enabled (same as Hurricane).
+     */
+    private void applyCliffHighlight(Coord tc, MPart part) {
+        try {
+            // Check if highlight cliffs is enabled
+            Object highlightEnabled = NConfig.get(NConfig.Key.highlightCliffs);
+            if (highlightEnabled instanceof Boolean && (Boolean) highlightEnabled) {
+                // Apply highlight to all tiles (same as Hurricane)
+                part.mat = cliffHighlightMat;
+            }
+        } catch (Exception e) {
+            // Ignore errors in cliff highlighting
+        }
     }
 }

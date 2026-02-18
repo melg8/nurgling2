@@ -194,6 +194,16 @@ public class NMiniMapWnd extends Widget{
         fog.a = (Boolean) NConfig.get(NConfig.Key.exploredAreaEnable);
         buttons.add(fog);
 
+        // Highlight Cliffs checkbox - using existing grid icon as placeholder
+        ACheckBox highlightCliffs = new NMenuCheckBox("nurgling/hud/buttons/toggle_panel/grid", kb_grid, L10n.get("minimap.highlight_cliffs"));
+        highlightCliffs.changed(a -> {
+            NConfig.set(NConfig.Key.highlightCliffs, a);
+            NConfig.needUpdate();
+            // Map mesh will be rebuilt automatically on next tile load
+        });
+        highlightCliffs.a = (Boolean) NConfig.get(NConfig.Key.highlightCliffs);
+        buttons.add(highlightCliffs);
+
         ACheckBox timer = new NMenuCheckBox("nurgling/hud/buttons/toggle_panel/timer", kb_resourcetimers, L10n.get("minimap.resource_timers"));
         timer.state(() -> {
             NGameUI gui = NUtils.getGameUI();
