@@ -197,17 +197,29 @@ public class CliffCrossingTestBot implements Action {
         Coord playerPos = startPos;
         int stepsBeyondCliff = 0;
         boolean cliffCrossed = false;
-        int maxIterations = 100; // Safety limit
+        int maxIterations = 100;
         int iteration = 0;
+        int noProgressCount = 0;
+        Coord firstCliffPos = null; // Track where we crossed
         
         log(gui, "Starting movement in direction: " + dirName(lookDir));
         log(gui, "Session location tc: " + gui.mmap.sessloc.tc);
         log(gui, "Start position: " + startPos);
         
-        while (stepsBeyondCliff < 2 && !cancelled && iteration < maxIterations) {
+        while (stepsBeyondCliff < 2 && !cancelled && iteration < maxIterations && noProgressCount < 5) {
             iteration++;
-            playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
-            log(gui, "Iteration " + iteration + ": Position=" + playerPos + ", stepsBeyond=" + stepsBeyondCliff + ", cliffCrossed=" + cliffCrossed);
+            
+            // Always get fresh player position
+            Coord freshPlayerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            
+            if (freshPlayerPos.equals(playerPos)) {
+                noProgressCount++;
+                log(gui, "Iteration " + iteration + ": Position=" + playerPos + " (NO PROGRESS, count=" + noProgressCount + ")");
+            } else {
+                log(gui, "Iteration " + iteration + ": Position=" + freshPlayerPos + ", moved from " + playerPos);
+                playerPos = freshPlayerPos;
+                noProgressCount = 0;
+            }
             
             // Get path ahead
             List<Coord> pathCells = getPathCells(playerPos, 20);
@@ -217,6 +229,12 @@ public class CliffCrossingTestBot implements Action {
             
             if (firstCliff != null) {
                 log(gui, "Cliff found at: " + firstCliff);
+                
+                // Track first cliff position for beyond-checking
+                if (firstCliffPos == null) {
+                    firstCliffPos = firstCliff;
+                }
+                
                 // Analyze cliff and determine strategy
                 CliffAnalysis analysis = analyzeCliff(firstCliff, lookDir, gui);
                 
@@ -229,55 +247,125 @@ public class CliffCrossingTestBot implements Action {
                     log(gui, "Strategy: " + analysis.strategy);
                     
                     if (analysis.strategy.equals("SINGLE_CLIFF")) {
-                        // Single cliff - click through center
                         executeSingleCliffCrossing(gui, analysis, playerPos);
                     } else if (analysis.strategy.equals("CORNER_APPROACH")) {
-                        // Double cliff - approach corner and click
-                        executeDoubleCliffCrossing(gui, analysis, playerPos);
+                        executeCornerApproachCrossing(gui, analysis, playerPos);
                     } else if (analysis.strategy.equals("BLOCKED")) {
-                        log(gui, "Path is blocked! Trying alternative approach...");
-                        // Try clicking the cell after the cliff anyway
-                        executeSingleCliffCrossing(gui, analysis, playerPos);
+                        log(gui, "Path is blocked! Using 2-click blocked crossing...");
+                        executeBlockedCrossing(gui, analysis, playerPos);
                     } else {
-                        log(gui, "Unknown cliff type: " + analysis.cliffType);
+                        log(gui, "Unknown strategy: " + analysis.strategy);
                     }
                     
-                    // Wait for movement to complete
-                    waitForMovementCompletion(gui);
-                    
-                    // Verify position and retry if needed
-                    if (!verifyPositionAfterCrossing(gui, analysis)) {
-                        log(gui, "Position verification failed - retrying...");
-                        executeRetryCrossing(gui, analysis);
-                    }
-                    
+                    // Update position after crossing
+                    playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                    log(gui, "After crossing position: " + playerPos);
+
                     cliffCrossed = true;
                     log(gui, "Cliff crossed successfully!");
                 } else {
-                    // Already crossed - just move forward
-                    log(gui, "Moving beyond cliff, step " + (stepsBeyondCliff + 1));
-                    moveForward(gui, playerPos);
-                    waitForMovementCompletion(gui);
-                    stepsBeyondCliff++;
-                    Thread.sleep(1000);
+                    // Already crossed - check if we're beyond the cliff
+                    if (firstCliffPos != null) {
+                        Coord dir = dirVectors[lookDir];
+                        int distanceBeyond = getDistanceBeyondCliff(playerPos, firstCliffPos, dir);
+                        boolean onMainLine = isOnMainPathLine(playerPos, firstCliffPos, dir);
+                        
+                        log(gui, "Distance beyond cliff: " + distanceBeyond + ", onMainLine=" + onMainLine + " (first cliff at " + firstCliffPos + ")");
+
+                        if (distanceBeyond >= 2 && onMainLine) {
+                            stepsBeyondCliff = 2; // Done
+                            log(gui, "Reached 2 cells beyond cliff on main line!");
+                        } else if (distanceBeyond >= 1 && onMainLine) {
+                            stepsBeyondCliff = 1;
+                            log(gui, "Reached 1 cell beyond cliff on main line, need 1 more");
+                            // Move one more cell
+                            moveForward(gui, playerPos);
+                            playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                            stepsBeyondCliff = 2;
+                        } else {
+                            // Not beyond yet or not on main line - move forward
+                            log(gui, "Not beyond cliff yet or off path, moving forward...");
+                            moveForward(gui, playerPos);
+                            playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                        }
+                    }
                 }
             } else {
                 log(gui, "No cliff ahead, moving forward...");
-                // No cliff ahead - move forward and update visualization
                 updateVisualizationNoCliff(playerPos, pathCells, gui);
-                moveForward(gui, playerPos);
-                waitForMovementCompletion(gui);
-                Thread.sleep(1000);
+
+                if (cliffCrossed) {
+                    // Already crossed a cliff, just need to count steps beyond
+                    Coord dir = dirVectors[lookDir];
+                    int distanceBeyond = getDistanceBeyondCliff(playerPos, firstCliffPos, dir);
+                    boolean onMainLine = isOnMainPathLine(playerPos, firstCliffPos, dir);
+                    
+                    log(gui, "Beyond cliff distance: " + distanceBeyond + ", onMainLine=" + onMainLine);
+
+                    if (distanceBeyond >= 2 && onMainLine) {
+                        stepsBeyondCliff = 2;
+                        log(gui, "Already 2+ cells beyond cliff on main line");
+                    } else {
+                        moveForward(gui, playerPos);
+                        playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                        if (onMainLine) {
+                            stepsBeyondCliff = distanceBeyond + 1;
+                        }
+                    }
+                } else {
+                    moveForward(gui, playerPos);
+                    playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                }
             }
         }
         
-        log(gui, "Loop finished: iterations=" + iteration + ", stepsBeyond=" + stepsBeyondCliff);
+        log(gui, "Loop finished: iterations=" + iteration + ", stepsBeyond=" + stepsBeyondCliff + ", noProgress=" + noProgressCount);
         return playerPos;
     }
     
     /**
+     * Calculate how many cells beyond the cliff we are
+     * @param currentPos Current player position
+     * @param cliffPos Position of the first cliff cell
+     * @param dir Direction of travel
+     * @return Number of cells beyond the cliff (negative = before cliff)
+     */
+    private int getDistanceBeyondCliff(Coord currentPos, Coord cliffPos, Coord dir) {
+        // Project current position onto direction vector
+        Coord diff = currentPos.sub(cliffPos);
+        
+        // Calculate dot product with direction
+        int distance = (diff.x * dir.x + diff.y * dir.y);
+        
+        // Positive = beyond cliff, negative = before cliff
+        return distance;
+    }
+    
+    /**
+     * Check if player is on the main path line (not off to the side)
+     * @param currentPos Current player position
+     * @param cliffPos Position of the first cliff cell
+     * @param dir Direction of travel
+     * @return true if player is on the main path line
+     */
+    private boolean isOnMainPathLine(Coord currentPos, Coord cliffPos, Coord dir) {
+        Coord diff = currentPos.sub(cliffPos);
+        
+        // For West/East movement (dir.x != 0), check if Y coordinates match
+        if (dir.x != 0) {
+            return diff.y == 0;
+        }
+        // For North/South movement (dir.y != 0), check if X coordinates match
+        if (dir.y != 0) {
+            return diff.x == 0;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Execute crossing for single cliff cell
-     * Click from current cell through cliff cell to center of cell beyond
+     * Spam click target cell until character reaches it
      */
     private void executeSingleCliffCrossing(NGameUI gui, CliffAnalysis analysis, Coord playerPos) throws InterruptedException {
         Coord targetCell = analysis.targetCell;
@@ -285,51 +373,200 @@ public class CliffCrossingTestBot implements Action {
             throw new RuntimeException("No target cell for single cliff crossing");
         }
 
-        // Convert tile coords to world coords (center of tile)
         Coord2d targetWorld = targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        log(gui, "Single cliff - target tile: " + targetCell + ", world: " + targetWorld);
+        log(gui, "SINGLE_CLIFF - target: " + targetCell);
 
-        // Click on target cell center using world coordinates
-        log(gui, "Clicking world position: " + targetWorld);
-        NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
-
-        Thread.sleep(500);
+        int maxClicks = 15;
+        int clickCount = 0;
+        Coord lastPos = NUtils.player().rc.div(MCache.tilesz).floor();
+        
+        while (clickCount < maxClicks) {
+            // Check if we reached target
+            Coord currentPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            if (currentPos.equals(targetCell)) {
+                log(gui, "Reached target cell " + targetCell + " after " + (clickCount + 1) + " clicks!");
+                break;
+            }
+            
+            // Click target
+            NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
+            clickCount++;
+            log(gui, "Click " + clickCount + " at " + targetCell + ", pos=" + currentPos);
+            
+            // Wait for position change
+            boolean moved = waitForPositionChange(gui, 3000);
+            
+            Coord newPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            if (!newPos.equals(lastPos)) {
+                log(gui, "Moved from " + lastPos + " to " + newPos);
+                lastPos = newPos;
+            }
+            
+            if (!moved) {
+                log(gui, "No movement, clicking again...");
+            }
+            
+            Thread.sleep(100);
+        }
+        
+        if (clickCount >= maxClicks) {
+            log(gui, "Max clicks reached for single cliff");
+        }
+        
+        log(gui, "Single cliff crossing complete");
     }
 
     /**
-     * Execute crossing for double cliff cells
-     * 1. Move to corner of current cell adjacent to free cell in row 2
-     * 2. Click corner (not center) of free cell
-     * 3. Wait for movement
-     * 4. Click center of free cell
+     * Execute crossing for BLOCKED double cliff (both row 2 cells are cliffs)
+     * Uses spam-click approach until character reaches target
      */
-    private void executeDoubleCliffCrossing(NGameUI gui, CliffAnalysis analysis, Coord playerPos) throws InterruptedException {
+    private void executeBlockedCrossing(NGameUI gui, CliffAnalysis analysis, Coord playerPos) throws InterruptedException {
+        if (analysis.cliffCells.isEmpty()) {
+            throw new RuntimeException("No cliff cells for blocked crossing");
+        }
+        
+        Coord firstCliff = analysis.cliffCells.get(0);
+        Coord dir = dirVectors[lookDir];
+        
+        // Step 1: Click cell BEFORE the cliff (approach edge)
+        Coord approachCell = firstCliff.sub(dir);
+        Coord2d approachWorld = approachCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+        
+        log(gui, "BLOCKED crossing - Step 1: Approach edge at " + approachCell);
+        NUtils.getGameUI().map.wdgmsg("click", Coord.z, approachWorld.floor(OCache.posres), 1, 0);
+        
+        // Wait for character to reach edge (short timeout, just check position)
+        waitForPositionChange(gui, 5000);
+        log(gui, "Reached edge, position: " + NUtils.player().rc.div(MCache.tilesz).floor());
+        Thread.sleep(300);
+        
+        // Step 2: Spam click target cell until character reaches it
+        Coord targetCell = analysis.targetCell;
+        if (targetCell == null) {
+            targetCell = firstCliff.add(dir.mul(2));
+        }
+        Coord2d targetWorld = targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+        
+        log(gui, "BLOCKED crossing - Step 2: Spam clicking target " + targetCell);
+        
+        int maxClicks = 15;
+        int clickCount = 0;
+        Coord lastPos = NUtils.player().rc.div(MCache.tilesz).floor();
+        
+        while (clickCount < maxClicks) {
+            // Check if we reached target
+            Coord currentPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            if (currentPos.equals(targetCell)) {
+                log(gui, "Reached target cell " + targetCell + " after " + (clickCount + 1) + " clicks!");
+                break;
+            }
+            
+            // Click target
+            NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
+            clickCount++;
+            log(gui, "Click " + clickCount + " at " + targetCell + ", pos=" + currentPos);
+            
+            // Wait for position change (not Moving attribute!)
+            boolean moved = waitForPositionChange(gui, 3000);
+            
+            // Check if we made progress
+            Coord newPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            if (!newPos.equals(lastPos)) {
+                log(gui, "Moved from " + lastPos + " to " + newPos);
+                lastPos = newPos;
+            }
+            
+            if (!moved) {
+                log(gui, "No movement detected, clicking again...");
+            }
+            
+            Thread.sleep(100);
+        }
+        
+        if (clickCount >= maxClicks) {
+            log(gui, "Max clicks reached, final position: " + NUtils.player().rc.div(MCache.tilesz).floor());
+        }
+        
+        log(gui, "Blocked crossing complete");
+    }
+    
+    /**
+     * Wait for player position to change
+     * @param gui Game UI
+     * @param timeout Max time to wait in ms
+     * @return true if position changed, false if timeout
+     */
+    private boolean waitForPositionChange(NGameUI gui, long timeout) throws InterruptedException {
+        Gob player = NUtils.player();
+        if (player == null) return false;
+        
+        Coord2d startPos = player.rc;
+        long startTime = System.currentTimeMillis();
+        
+        while (System.currentTimeMillis() - startTime < timeout) {
+            Thread.sleep(100);
+            if (!player.rc.equals(startPos)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Execute crossing for double cliff cells using CORNER_APPROACH strategy
+     * Spam click the free cell in row 2 until character reaches it
+     */
+    private void executeCornerApproachCrossing(NGameUI gui, CliffAnalysis analysis, Coord playerPos) throws InterruptedException {
         if (analysis.neighborCells.isEmpty()) {
-            throw new RuntimeException("No free neighbor cells found for double cliff crossing");
+            throw new RuntimeException("No free neighbor cells for corner approach");
         }
 
         Coord freeCell = analysis.neighborCells.get(0);
-        
-        // Convert tile coords to world coords (center of tile)
         Coord2d freeWorld = freeCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        log(gui, "Double cliff - free cell tile: " + freeCell + ", world: " + freeWorld);
+        log(gui, "CORNER_APPROACH - free cell: " + freeCell);
 
-        // Step 1: Click on free cell
-        log(gui, "Clicking free cell world: " + freeWorld);
-        NUtils.getGameUI().map.wdgmsg("click", Coord.z, freeWorld.floor(OCache.posres), 1, 0);
-
-        waitForMovementCompletion(gui);
-        Thread.sleep(500);
-
-        // Step 2: Click again to ensure movement
-        log(gui, "Clicking free cell again: " + freeWorld);
-        NUtils.getGameUI().map.wdgmsg("click", Coord.z, freeWorld.floor(OCache.posres), 1, 0);
-
-        waitForMovementCompletion(gui);
+        int maxClicks = 15;
+        int clickCount = 0;
+        Coord lastPos = NUtils.player().rc.div(MCache.tilesz).floor();
+        
+        while (clickCount < maxClicks) {
+            // Check if we reached target
+            Coord currentPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            if (currentPos.equals(freeCell)) {
+                log(gui, "Reached free cell " + freeCell + " after " + (clickCount + 1) + " clicks!");
+                break;
+            }
+            
+            // Click free cell
+            NUtils.getGameUI().map.wdgmsg("click", Coord.z, freeWorld.floor(OCache.posres), 1, 0);
+            clickCount++;
+            log(gui, "Click " + clickCount + " at " + freeCell + ", pos=" + currentPos);
+            
+            // Wait for position change
+            boolean moved = waitForPositionChange(gui, 3000);
+            
+            Coord newPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            if (!newPos.equals(lastPos)) {
+                log(gui, "Moved from " + lastPos + " to " + newPos);
+                lastPos = newPos;
+            }
+            
+            if (!moved) {
+                log(gui, "No movement, clicking again...");
+            }
+            
+            Thread.sleep(100);
+        }
+        
+        if (clickCount >= maxClicks) {
+            log(gui, "Max clicks reached for corner approach");
+        }
+        
+        log(gui, "Corner approach complete");
     }
-    
+
     /**
      * Execute retry crossing if position verification fails
      */
@@ -337,36 +574,25 @@ public class CliffCrossingTestBot implements Action {
         log(gui, "Retrying crossing...");
 
         if (analysis.targetCell != null) {
-            // Convert to world coords
             Coord2d targetWorld = analysis.targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
-            log(gui, "Clicking target cell: " + analysis.targetCell + " (world: " + targetWorld + ")");
-            NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
-            waitForMovementCompletion(gui);
-        }
-    }
-    
-    /**
-     * Wait for movement to complete
-     */
-    private void waitForMovementCompletion(NGameUI gui) throws InterruptedException {
-        Gob player = NUtils.player();
-        if (player == null) {
-            log(gui, "Player is null");
-            return;
-        }
-        
-        Moving moving = player.getattr(Moving.class);
-        if (moving != null) {
-            log(gui, "Waiting for movement...");
-            int timeout = 0;
-            while (player.getattr(Moving.class) != null && timeout < 50) {
-                Thread.sleep(200);
-                timeout++;
+            
+            int maxClicks = 10;
+            int clickCount = 0;
+            
+            while (clickCount < maxClicks) {
+                Coord currentPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                if (currentPos.equals(analysis.targetCell)) {
+                    log(gui, "Reached target after " + (clickCount + 1) + " clicks!");
+                    break;
+                }
+                
+                NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
+                clickCount++;
+                log(gui, "Retry click " + clickCount + " at " + analysis.targetCell);
+                
+                waitForPositionChange(gui, 3000);
+                Thread.sleep(100);
             }
-            log(gui, "Movement done (timeout=" + timeout + ")");
-            Thread.sleep(500);
-        } else {
-            log(gui, "Not moving");
         }
     }
     
@@ -396,16 +622,12 @@ public class CliffCrossingTestBot implements Action {
     private void moveForward(NGameUI gui, Coord playerPos) throws InterruptedException {
         Coord dir = dirVectors[lookDir];
         Coord targetCell = playerPos.add(dir);
-        
-        // Convert to world coords
         Coord2d targetWorld = targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        log(gui, "Moving to: " + targetCell + " (world: " + targetWorld + ")");
+        log(gui, "Moving to: " + targetCell);
         
         NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
-        
-        log(gui, "Click sent");
-        Thread.sleep(500);
+        waitForPositionChange(gui, 5000);
     }
     
     /**
