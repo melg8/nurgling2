@@ -10,6 +10,8 @@ import haven.render.*;
 
 import java.awt.Color;
 import java.awt.event.KeyEvent;
+import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -63,10 +65,25 @@ public class CliffCrossingTestBot implements Action {
     
     // Cancellation flag
     private volatile boolean cancelled = false;
+    
+    // Log file writer
+    private PrintWriter logWriter = null;
+    private String logFileName = null;
 
     @Override
     public Results run(NGameUI gui) throws InterruptedException {
         GameUI gameui = NUtils.getGameUI();
+
+        // Create log file
+        try {
+            String dateStr = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+            logFileName = "bot_log_" + dateStr + ".txt";
+            logWriter = new PrintWriter(new FileWriter(logFileName));
+            log("=== Cliff Crossing Test Bot Started ===");
+            log("Log file: " + logFileName);
+        } catch (IOException e) {
+            log(gui, "Failed to create log file: " + e.getMessage());
+        }
 
         // Create window
         CliffClimberTestWnd w = null;
@@ -92,9 +109,9 @@ public class CliffCrossingTestBot implements Action {
 
         try {
             // Wait for user to set direction using character's look direction
-            gui.ui.gui.msg("=== Cliff Crossing Test ===");
-            gui.ui.gui.msg("Turn your character to set direction");
-            gui.ui.gui.msg("Bot will start automatically in 5 seconds...");
+            log(gui, "=== Cliff Crossing Test ===");
+            log(gui, "Turn your character to set direction");
+            log(gui, "Bot will start automatically in 5 seconds...");
             
             // Wait 5 seconds for user to set direction
             for (int i = 5; i > 0 && !cancelled; i--) {
@@ -102,7 +119,7 @@ public class CliffCrossingTestBot implements Action {
                 int charDir = getCharacterLookDirection();
                 if (charDir != -1 && charDir != lookDir) {
                     lookDir = charDir;
-                    gui.ui.gui.msg("Direction updated: " + dirName(lookDir));
+                    log(gui, "Direction updated: " + dirName(lookDir));
                     
                     // Update visualization to show new direction
                     Coord playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
@@ -110,17 +127,17 @@ public class CliffCrossingTestBot implements Action {
                     updateVisualizationNoCliff(playerPos, pathCells, gui);
                 }
                 
-                gui.ui.gui.msg("Starting in " + i + "...");
+                log(gui, "Starting in " + i + "...");
                 Thread.sleep(1000);
             }
             
             if (cancelled) {
-                gui.ui.gui.msg("Cliff crossing test cancelled");
+                log(gui, "Cliff crossing test cancelled");
                 return Results.FAIL();
             }
             
-            gui.ui.gui.msg("Direction locked: " + dirName(lookDir));
-            gui.ui.gui.msg("Starting cliff crossing test...");
+            log(gui, "Direction locked: " + dirName(lookDir));
+            log(gui, "Starting cliff crossing test...");
             
             // Get initial position
             Coord playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
@@ -131,11 +148,11 @@ public class CliffCrossingTestBot implements Action {
                 public void added(RenderTree.Slot slot) {
                     slot.ostate(fullPathState);
                     fullPathSlots.add(slot);
-                    gui.ui.gui.msg("Full path overlay added to render tree");
+                    log(gui, "Full path overlay added to render tree");
                     // Force initial update
                     if (fullPathModel != null) {
                         slot.update();
-                        gui.ui.gui.msg("Initial path model updated");
+                        log(gui, "Initial path model updated");
                     }
                 }
 
@@ -151,25 +168,25 @@ public class CliffCrossingTestBot implements Action {
                 }
             });
             
-            gui.ui.gui.msg("Full path overlay registered, slots=" + fullPathSlots.size());
+            log(gui, "Full path overlay registered, slots=" + fullPathSlots.size());
 
             // Main test loop - move forward until 2 cells beyond cliff
             playerPos = executeCliffCrossing(gui, playerPos);
             
-            gui.ui.gui.msg("Cliff crossing test completed successfully!");
+            log(gui, "Cliff crossing test completed successfully!");
             return Results.SUCCESS();
             
         } catch (InterruptedException e) {
-            gui.ui.gui.msg("Cliff crossing test interrupted");
+            log(gui, "Cliff crossing test interrupted");
             cancelled = true;
             throw e;
         } catch (Exception e) {
-            gui.ui.gui.msg("Cliff crossing test failed: " + e.getMessage());
+            log(gui, "Cliff crossing test failed: " + e.getMessage());
             e.printStackTrace();
             return Results.FAIL();
         } finally {
             // Clear overlays safely
-            cleanup();
+            cleanup(gui);
         }
     }
     
@@ -183,21 +200,21 @@ public class CliffCrossingTestBot implements Action {
         int maxIterations = 100; // Safety limit
         int iteration = 0;
         
-        gui.ui.gui.msg("Starting movement in direction: " + dirName(lookDir));
+        log(gui, "Starting movement in direction: " + dirName(lookDir));
         
         while (stepsBeyondCliff < 2 && !cancelled && iteration < maxIterations) {
             iteration++;
             playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
-            gui.ui.gui.msg("Iteration " + iteration + ": Position=" + playerPos + ", stepsBeyond=" + stepsBeyondCliff + ", cliffCrossed=" + cliffCrossed);
+            log(gui, "Iteration " + iteration + ": Position=" + playerPos + ", stepsBeyond=" + stepsBeyondCliff + ", cliffCrossed=" + cliffCrossed);
             
             // Get path ahead
             List<Coord> pathCells = getPathCells(playerPos, 20);
-            gui.ui.gui.msg("Checking " + pathCells.size() + " cells ahead for cliffs...");
+            log(gui, "Checking " + pathCells.size() + " cells ahead for cliffs...");
             
             Coord firstCliff = findFirstCliff(pathCells, gui);
             
             if (firstCliff != null) {
-                gui.ui.gui.msg("Cliff found at: " + firstCliff);
+                log(gui, "Cliff found at: " + firstCliff);
                 // Analyze cliff and determine strategy
                 CliffAnalysis analysis = analyzeCliff(firstCliff, lookDir, gui);
                 
@@ -206,8 +223,8 @@ public class CliffCrossingTestBot implements Action {
                 
                 if (!cliffCrossed) {
                     // Execute cliff crossing
-                    gui.ui.gui.msg("Cliff detected! Type: " + analysis.cliffType);
-                    gui.ui.gui.msg("Strategy: " + analysis.strategy);
+                    log(gui, "Cliff detected! Type: " + analysis.cliffType);
+                    log(gui, "Strategy: " + analysis.strategy);
                     
                     if (analysis.cliffType.equals("SINGLE_CLIFF")) {
                         // Single cliff - click through center
@@ -216,7 +233,7 @@ public class CliffCrossingTestBot implements Action {
                         // Double cliff - approach corner and click
                         executeDoubleCliffCrossing(gui, analysis, playerPos);
                     } else {
-                        gui.ui.gui.msg("Unknown cliff type: " + analysis.cliffType);
+                        log(gui, "Unknown cliff type: " + analysis.cliffType);
                     }
                     
                     // Wait for movement to complete
@@ -224,22 +241,22 @@ public class CliffCrossingTestBot implements Action {
                     
                     // Verify position and retry if needed
                     if (!verifyPositionAfterCrossing(gui, analysis)) {
-                        gui.ui.gui.msg("Position verification failed - retrying...");
+                        log(gui, "Position verification failed - retrying...");
                         executeRetryCrossing(gui, analysis);
                     }
                     
                     cliffCrossed = true;
-                    gui.ui.gui.msg("Cliff crossed successfully!");
+                    log(gui, "Cliff crossed successfully!");
                 } else {
                     // Already crossed - just move forward
-                    gui.ui.gui.msg("Moving beyond cliff, step " + (stepsBeyondCliff + 1));
+                    log(gui, "Moving beyond cliff, step " + (stepsBeyondCliff + 1));
                     moveForward(gui, playerPos);
                     waitForMovementCompletion(gui);
                     stepsBeyondCliff++;
                     Thread.sleep(1000);
                 }
             } else {
-                gui.ui.gui.msg("No cliff ahead, moving forward...");
+                log(gui, "No cliff ahead, moving forward...");
                 // No cliff ahead - move forward and update visualization
                 updateVisualizationNoCliff(playerPos, pathCells, gui);
                 moveForward(gui, playerPos);
@@ -248,7 +265,7 @@ public class CliffCrossingTestBot implements Action {
             }
         }
         
-        gui.ui.gui.msg("Loop finished: iterations=" + iteration + ", stepsBeyond=" + stepsBeyondCliff);
+        log(gui, "Loop finished: iterations=" + iteration + ", stepsBeyond=" + stepsBeyondCliff);
         return playerPos;
     }
     
@@ -265,7 +282,7 @@ public class CliffCrossingTestBot implements Action {
         // Calculate world position (center of target cell)
         Coord2d targetWorld = targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        gui.ui.gui.msg("Single cliff - clicking center of target cell at: " + targetCell);
+        log(gui, "Single cliff - clicking center of target cell at: " + targetCell);
         
         // Click on target cell center
         NUtils.getGameUI().map.wdgmsg("click",
@@ -288,11 +305,11 @@ public class CliffCrossingTestBot implements Action {
         }
         
         Coord freeCell = analysis.neighborCells.get(0);
-        gui.ui.gui.msg("Double cliff - using free cell at: " + freeCell);
+        log(gui, "Double cliff - using free cell at: " + freeCell);
         
         // Step 1: Move to corner of current cell
         Coord2d cornerPos = getCornerPosition(playerPos, freeCell);
-        gui.ui.gui.msg("Moving to corner: " + cornerPos);
+        log(gui, "Moving to corner: " + cornerPos);
         
         NUtils.getGameUI().map.wdgmsg("click",
             Coord2d.of(cornerPos.x, cornerPos.y),
@@ -303,7 +320,7 @@ public class CliffCrossingTestBot implements Action {
         
         // Step 2: Click center of free cell
         Coord2d centerPos = freeCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
-        gui.ui.gui.msg("Clicking center of free cell: " + centerPos);
+        log(gui, "Clicking center of free cell: " + centerPos);
         
         NUtils.getGameUI().map.wdgmsg("click",
             Coord2d.of(centerPos.x, centerPos.y),
@@ -333,7 +350,7 @@ public class CliffCrossingTestBot implements Action {
      * Execute retry crossing if position verification fails
      */
     private void executeRetryCrossing(NGameUI gui, CliffAnalysis analysis) throws InterruptedException {
-        gui.ui.gui.msg("Retrying crossing...");
+        log(gui, "Retrying crossing...");
         
         if (analysis.targetCell != null) {
             Coord2d targetWorld = analysis.targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
@@ -351,22 +368,22 @@ public class CliffCrossingTestBot implements Action {
     private void waitForMovementCompletion(NGameUI gui) throws InterruptedException {
         Gob player = NUtils.player();
         if (player == null) {
-            gui.ui.gui.msg("Player is null");
+            log(gui, "Player is null");
             return;
         }
         
         Moving moving = player.getattr(Moving.class);
         if (moving != null) {
-            gui.ui.gui.msg("Waiting for movement...");
+            log(gui, "Waiting for movement...");
             int timeout = 0;
             while (player.getattr(Moving.class) != null && timeout < 50) {
                 Thread.sleep(200);
                 timeout++;
             }
-            gui.ui.gui.msg("Movement done (timeout=" + timeout + ")");
+            log(gui, "Movement done (timeout=" + timeout + ")");
             Thread.sleep(500);
         } else {
-            gui.ui.gui.msg("Not moving");
+            log(gui, "Not moving");
         }
     }
     
@@ -398,13 +415,13 @@ public class CliffCrossingTestBot implements Action {
         Coord targetCell = playerPos.add(dir);
         Coord2d targetWorld = targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        gui.ui.gui.msg("Moving to: " + targetCell);
+        log(gui, "Moving to: " + targetCell);
         
         NUtils.getGameUI().map.wdgmsg("click",
             Coord2d.of(targetWorld.x, targetWorld.y),
             0, 0, 0, 0, 0, 0);
         
-        gui.ui.gui.msg("Click sent");
+        log(gui, "Click sent");
         Thread.sleep(500);
     }
     
@@ -440,10 +457,34 @@ public class CliffCrossingTestBot implements Action {
     }
     
     /**
+     * Log message to both GUI and file
+     */
+    private void log(NGameUI gui, String message) {
+        if (gui != null) {
+            gui.ui.gui.msg(message);
+        }
+        log(message);
+    }
+    
+    /**
+     * Log message to file
+     */
+    private void log(String message) {
+        if (logWriter != null) {
+            String timestamp = new SimpleDateFormat("HH:mm:ss").format(new Date());
+            logWriter.println("[" + timestamp + "] " + message);
+            logWriter.flush();
+        }
+    }
+    
+    /**
      * Cleanup resources
      */
-    private void cleanup() {
+    private void cleanup(NGameUI gui) {
         cancelled = true;
+        
+        log(gui, "=== Cleaning up ===");
+        
         if (debugOverlay != null) {
             debugOverlay.clearAll();
         }
@@ -458,6 +499,23 @@ public class CliffCrossingTestBot implements Action {
             fullPathSlot = null;
         }
         fullPathSlots.clear();
+        
+        // Close log file
+        if (logWriter != null) {
+            log("=== Test finished ===");
+            logWriter.close();
+            logWriter = null;
+            if (gui != null) {
+                log(gui, "Log saved to: " + logFileName);
+            }
+        }
+    }
+    
+    /**
+     * Cleanup resources (no GUI)
+     */
+    private void cleanup() {
+        cleanup(null);
     }
 
     /**
@@ -532,7 +590,7 @@ public class CliffCrossingTestBot implements Action {
             double centerZ = map.getfz(tc);
             double threshold = 3.0;  // Height difference threshold
             
-            gui.ui.gui.msg("Checking cell " + tc + " for cliff, centerZ=" + centerZ);
+            log(gui, "Checking cell " + tc + " for cliff, centerZ=" + centerZ);
             
             // Check all 4 neighbors for height difference
             Coord[] neighbors = {
@@ -543,15 +601,15 @@ public class CliffCrossingTestBot implements Action {
             for (Coord n : neighbors) {
                 double neighborZ = map.getfz(n);
                 double diff = Math.abs(centerZ - neighborZ);
-                gui.ui.gui.msg("  Neighbor " + n + " has Z=" + neighborZ + ", diff=" + diff);
+                log(gui, "  Neighbor " + n + " has Z=" + neighborZ + ", diff=" + diff);
                 
                 if (diff > threshold) {
-                    gui.ui.gui.msg("  CLIFF DETECTED at " + tc + " (diff=" + diff + " > " + threshold + ")");
+                    log(gui, "  CLIFF DETECTED at " + tc + " (diff=" + diff + " > " + threshold + ")");
                     return true;
                 }
             }
         } catch (Exception e) {
-            gui.ui.gui.msg("Error checking cliff at " + tc + ": " + e.getMessage());
+            log(gui, "Error checking cliff at " + tc + ": " + e.getMessage());
         }
         return false;
     }
@@ -732,12 +790,12 @@ public class CliffCrossingTestBot implements Action {
             tslots = new ArrayList<>(fullPathSlots);
         }
         try {
-            gui.ui.gui.msg("Updating full path slots, count=" + tslots.size());
+            log(gui, "Updating full path slots, count=" + tslots.size());
             for (RenderTree.Slot slot : tslots) {
                 slot.update();
             }
         } catch (Exception e) {
-            gui.ui.gui.msg("Error updating slots: " + e.getMessage());
+            log(gui, "Error updating slots: " + e.getMessage());
         }
     }
     
