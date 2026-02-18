@@ -1035,6 +1035,15 @@ public class MCache implements MapSource {
 	init();
     }
 
+    public void refreshAllGrids() {
+	Collection<Grid> copy;
+	synchronized(grids) {
+	    copy = new ArrayList<>(grids.values());
+	}
+	for(Grid g : copy)
+	    g.invalidate();
+    }
+
     public void ctick(double dt) {
 	Collection<Grid> copy;
 	synchronized(grids) {

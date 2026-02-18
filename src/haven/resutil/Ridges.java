@@ -794,6 +794,9 @@ public class Ridges implements MapMesh.ConsHooks {
             if (highlightEnabled instanceof Boolean && (Boolean) highlightEnabled) {
                 // Apply highlight to all tiles (same as Hurricane)
                 part.mat = cliffHighlightMat;
+            } else {
+                // Remove highlight when disabled
+                part.mat = null;
             }
         } catch (Exception e) {
             // Ignore errors in cliff highlighting

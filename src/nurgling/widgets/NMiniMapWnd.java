@@ -199,7 +199,10 @@ public class NMiniMapWnd extends Widget{
         highlightCliffs.changed(a -> {
             NConfig.set(NConfig.Key.highlightCliffs, a);
             NConfig.needUpdate();
-            // Map mesh will be rebuilt automatically on next tile load
+            // Force immediate refresh of all grid meshes to apply/remove highlights
+            if (NUtils.getGameUI() != null && NUtils.getGameUI().map != null) {
+                NUtils.getGameUI().map.glob.map.refreshAllGrids();
+            }
         });
         highlightCliffs.a = (Boolean) NConfig.get(NConfig.Key.highlightCliffs);
         buttons.add(highlightCliffs);
