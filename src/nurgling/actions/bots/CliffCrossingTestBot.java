@@ -228,6 +228,13 @@ public class CliffCrossingTestBot implements Action {
             Coord foundCliff = findFirstCliff(pathCells, gui);
 
             if (foundCliff != null) {
+                // Check if this is a NEW cliff (different from previous)
+                if (firstCliff != null && !foundCliff.equals(firstCliff)) {
+                    // New cliff - reset cliffCrossed flag
+                    cliffCrossed = false;
+                    log(gui, "New cliff detected at " + foundCliff + " (previous was " + firstCliff + "), resetting cliffCrossed");
+                }
+                
                 firstCliff = foundCliff; // Update current cliff
                 log(gui, "Cliff found at: " + firstCliff);
 
@@ -661,7 +668,33 @@ public class CliffCrossingTestBot implements Action {
             log(gui, "Max clicks reached for corner approach");
         }
         
-        log(gui, "Corner approach complete, final position: " + NUtils.player().rc.div(MCache.tilesz).floor());
+        Coord finalPos = NUtils.player().rc.div(MCache.tilesz).floor();
+        log(gui, "Corner approach complete, final position: " + finalPos);
+        
+        // Return to main line after jumping down
+        Coord mainLineCell = firstCliff.add(dir); // Cell on main line after first cliff
+        
+        if (!finalPos.equals(mainLineCell)) {
+            log(gui, "Returning to main line: from " + finalPos + " to " + mainLineCell);
+            
+            Coord2d mainLineWorld = mainLineCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
+            int returnClicks = 0;
+            
+            while (returnClicks < 10) {
+                Coord currentPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                if (currentPos.equals(mainLineCell)) {
+                    log(gui, "Returned to main line at " + mainLineCell);
+                    break;
+                }
+                
+                NUtils.getGameUI().map.wdgmsg("click", Coord.z, mainLineWorld.floor(OCache.posres), 1, 0);
+                returnClicks++;
+                log(gui, "Return click " + returnClicks + " at " + mainLineCell + ", pos=" + currentPos);
+                
+                waitForPositionChange(gui, 2000);
+                Thread.sleep(100);
+            }
+        }
     }
 
     /**
