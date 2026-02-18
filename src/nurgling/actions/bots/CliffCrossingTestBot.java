@@ -201,6 +201,8 @@ public class CliffCrossingTestBot implements Action {
         int iteration = 0;
         
         log(gui, "Starting movement in direction: " + dirName(lookDir));
+        log(gui, "Session location tc: " + gui.mmap.sessloc.tc);
+        log(gui, "Start position: " + startPos);
         
         while (stepsBeyondCliff < 2 && !cancelled && iteration < maxIterations) {
             iteration++;
@@ -226,12 +228,16 @@ public class CliffCrossingTestBot implements Action {
                     log(gui, "Cliff detected! Type: " + analysis.cliffType);
                     log(gui, "Strategy: " + analysis.strategy);
                     
-                    if (analysis.cliffType.equals("SINGLE_CLIFF")) {
+                    if (analysis.strategy.equals("SINGLE_CLIFF")) {
                         // Single cliff - click through center
                         executeSingleCliffCrossing(gui, analysis, playerPos);
-                    } else if (analysis.cliffType.equals("DOUBLE_CLIFF")) {
+                    } else if (analysis.strategy.equals("CORNER_APPROACH")) {
                         // Double cliff - approach corner and click
                         executeDoubleCliffCrossing(gui, analysis, playerPos);
+                    } else if (analysis.strategy.equals("BLOCKED")) {
+                        log(gui, "Path is blocked! Trying alternative approach...");
+                        // Try clicking the cell after the cliff anyway
+                        executeSingleCliffCrossing(gui, analysis, playerPos);
                     } else {
                         log(gui, "Unknown cliff type: " + analysis.cliffType);
                     }
@@ -278,20 +284,19 @@ public class CliffCrossingTestBot implements Action {
         if (targetCell == null) {
             throw new RuntimeException("No target cell for single cliff crossing");
         }
-        
-        // Calculate world position (center of target cell)
+
+        // Convert tile coords to world coords (center of tile)
         Coord2d targetWorld = targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        log(gui, "Single cliff - clicking center of target cell at: " + targetCell);
-        
-        // Click on target cell center
-        NUtils.getGameUI().map.wdgmsg("click",
-            Coord2d.of(targetWorld.x, targetWorld.y),
-            0, 0, 0, 0, 0, 0);
-        
-        Thread.sleep(1000); // Wait for click to register
+        log(gui, "Single cliff - target tile: " + targetCell + ", world: " + targetWorld);
+
+        // Click on target cell center using world coordinates
+        log(gui, "Clicking world position: " + targetWorld);
+        NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
+
+        Thread.sleep(500);
     }
-    
+
     /**
      * Execute crossing for double cliff cells
      * 1. Move to corner of current cell adjacent to free cell in row 2
@@ -303,47 +308,26 @@ public class CliffCrossingTestBot implements Action {
         if (analysis.neighborCells.isEmpty()) {
             throw new RuntimeException("No free neighbor cells found for double cliff crossing");
         }
-        
+
         Coord freeCell = analysis.neighborCells.get(0);
-        log(gui, "Double cliff - using free cell at: " + freeCell);
         
-        // Step 1: Move to corner of current cell
-        Coord2d cornerPos = getCornerPosition(playerPos, freeCell);
-        log(gui, "Moving to corner: " + cornerPos);
+        // Convert tile coords to world coords (center of tile)
+        Coord2d freeWorld = freeCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        NUtils.getGameUI().map.wdgmsg("click",
-            Coord2d.of(cornerPos.x, cornerPos.y),
-            0, 0, 0, 0, 0, 0);
-        
+        log(gui, "Double cliff - free cell tile: " + freeCell + ", world: " + freeWorld);
+
+        // Step 1: Click on free cell
+        log(gui, "Clicking free cell world: " + freeWorld);
+        NUtils.getGameUI().map.wdgmsg("click", Coord.z, freeWorld.floor(OCache.posres), 1, 0);
+
         waitForMovementCompletion(gui);
         Thread.sleep(500);
-        
-        // Step 2: Click center of free cell
-        Coord2d centerPos = freeCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
-        log(gui, "Clicking center of free cell: " + centerPos);
-        
-        NUtils.getGameUI().map.wdgmsg("click",
-            Coord2d.of(centerPos.x, centerPos.y),
-            0, 0, 0, 0, 0, 0);
-        
+
+        // Step 2: Click again to ensure movement
+        log(gui, "Clicking free cell again: " + freeWorld);
+        NUtils.getGameUI().map.wdgmsg("click", Coord.z, freeWorld.floor(OCache.posres), 1, 0);
+
         waitForMovementCompletion(gui);
-    }
-    
-    /**
-     * Get corner position of current cell closest to target cell
-     */
-    private Coord2d getCornerPosition(Coord currentCell, Coord targetCell) {
-        Coord diff = targetCell.sub(currentCell);
-        
-        // Determine which corner based on direction
-        double cornerX = currentCell.x * MCache.tilesz.x;
-        double cornerY = currentCell.y * MCache.tilesz.y;
-        
-        // Add tile size if target is in positive direction
-        if (diff.x > 0) cornerX += MCache.tilesz.x;  // Right side
-        if (diff.y > 0) cornerY += MCache.tilesz.y;  // Bottom side
-        
-        return new Coord2d(cornerX, cornerY);
     }
     
     /**
@@ -351,13 +335,12 @@ public class CliffCrossingTestBot implements Action {
      */
     private void executeRetryCrossing(NGameUI gui, CliffAnalysis analysis) throws InterruptedException {
         log(gui, "Retrying crossing...");
-        
+
         if (analysis.targetCell != null) {
+            // Convert to world coords
             Coord2d targetWorld = analysis.targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
-            NUtils.getGameUI().map.wdgmsg("click",
-                Coord2d.of(targetWorld.x, targetWorld.y),
-                0, 0, 0, 0, 0, 0);
-            
+            log(gui, "Clicking target cell: " + analysis.targetCell + " (world: " + targetWorld + ")");
+            NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
             waitForMovementCompletion(gui);
         }
     }
@@ -413,13 +396,13 @@ public class CliffCrossingTestBot implements Action {
     private void moveForward(NGameUI gui, Coord playerPos) throws InterruptedException {
         Coord dir = dirVectors[lookDir];
         Coord targetCell = playerPos.add(dir);
+        
+        // Convert to world coords
         Coord2d targetWorld = targetCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         
-        log(gui, "Moving to: " + targetCell);
+        log(gui, "Moving to: " + targetCell + " (world: " + targetWorld + ")");
         
-        NUtils.getGameUI().map.wdgmsg("click",
-            Coord2d.of(targetWorld.x, targetWorld.y),
-            0, 0, 0, 0, 0, 0);
+        NUtils.getGameUI().map.wdgmsg("click", Coord.z, targetWorld.floor(OCache.posres), 1, 0);
         
         log(gui, "Click sent");
         Thread.sleep(500);
@@ -631,12 +614,21 @@ public class CliffCrossingTestBot implements Action {
 
             // Find alternative path through row 2
             Coord[] row2 = getRow2Cells(firstCliff, direction);
+            log(gui, "Checking row 2 cells for double cliff: " + row2[0] + ", " + row2[1]);
+            
             Coord freeCell = findFreeCell(row2, gui);
 
             if (freeCell != null) {
+                log(gui, "Found free cell in row 2: " + freeCell);
                 analysis.neighborCells.add(freeCell);
                 analysis.targetCell = freeCell;
                 analysis.strategy = "CORNER_APPROACH";
+            } else {
+                log(gui, "No free cell found in row 2 - both are cliffs!");
+                // Both row 2 cells are cliffs - need different strategy
+                // Try to find any passable neighbor
+                analysis.strategy = "BLOCKED";
+                analysis.targetCell = firstCliff.add(dir.mul(2)); // Fallback target
             }
         } else {
             analysis.cliffType = "SINGLE_CLIFF";
@@ -647,6 +639,7 @@ public class CliffCrossingTestBot implements Action {
             analysis.strategy = "DIRECT_CLICK";
         }
 
+        log(gui, "Cliff analysis complete: type=" + analysis.cliffType + ", strategy=" + analysis.strategy + ", target=" + analysis.targetCell);
         return analysis;
     }
 
@@ -676,11 +669,15 @@ public class CliffCrossingTestBot implements Action {
      * Find a free (non-cliff) cell from the given cells
      */
     private Coord findFreeCell(Coord[] cells, NGameUI gui) {
+        log(gui, "Checking cells for free path: " + cells[0] + ", " + cells[1]);
         for (Coord cell : cells) {
-            if (!isCliffCell(cell, gui)) {
+            boolean isCliff = isCliffCell(cell, gui);
+            log(gui, "  Cell " + cell + " is " + (isCliff ? "CLIFF" : "FREE"));
+            if (!isCliff) {
                 return cell;
             }
         }
+        log(gui, "  No free cells found!");
         return null;
     }
 
