@@ -58,7 +58,9 @@ public class WorldExplorerWnd extends Window implements Checkable {
             public void set(boolean a) {
                 super.set(a);
                 shallow.a = !a;
-                shoreline.a = false;
+                if (a) {
+                    shoreline.a = false;  // If deep is enabled, disable shoreline
+                }
             }
 
         }, prev.pos("bl").add(UI.scale(0,5)));
@@ -72,7 +74,9 @@ public class WorldExplorerWnd extends Window implements Checkable {
             public void set(boolean a) {
                 super.set(a);
                 deep.a = !a;
-                shoreline.a = false;
+                if (a) {
+                    shoreline.a = false;  // If shallow is enabled, disable shoreline
+                }
             }
 
         }, prev.pos("bl").add(UI.scale(0,5)));
@@ -85,8 +89,11 @@ public class WorldExplorerWnd extends Window implements Checkable {
             @Override
             public void set(boolean a) {
                 super.set(a);
-                deep.a = !a;
-                shallow.a = !a;
+                if (a) {
+                    // If shoreline is enabled, disable deep/shallow and enable deep
+                    deep.a = true;
+                    shallow.a = false;
+                }
             }
 
         }, prev.pos("bl").add(UI.scale(0,5)));
