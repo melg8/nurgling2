@@ -25,7 +25,7 @@ public class DebugLogWindow extends haven.Window {
     private static final int HEIGHT = UI.scale(250);
 
     public DebugLogWindow(String title) {
-        super(UI.scale(410, 260), title);
+        super(new Coord(WIDTH + UI.scale(10), HEIGHT), title, false);
         
         // Log display area using Label
         logLabel = new haven.Label("");

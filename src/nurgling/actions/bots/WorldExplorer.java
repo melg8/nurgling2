@@ -74,9 +74,14 @@ public class WorldExplorer implements Action {
             
             // Create debug log window and set thread-local reference
             debugLog = new DebugLogWindow("WorldExplorer Debug Log");
-            NUtils.getGameUI().add(debugLog, UI.scale(200, 500));
+            // Position window next to the bot window (which is at 200, 200)
+            Coord debugPos = UI.scale(650, 200);
+            NUtils.getGameUI().add(debugLog, debugPos);
             setDebugLog(debugLog);
             debugLog.addMessage("WorldExplorer started", DebugLogWindow.LogLevel.INFO);
+            
+            // Also show in game message log
+            NUtils.getGameUI().ui.gui.msg("Debug Log opened at " + debugPos);
         }
         catch (InterruptedException e)
         {
