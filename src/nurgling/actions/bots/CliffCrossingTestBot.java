@@ -695,11 +695,22 @@ public class CliffCrossingTestBot implements Action {
         Coord finalPos = NUtils.player().rc.div(MCache.tilesz).floor();
         log(gui, "Corner approach complete, final position: " + finalPos);
 
-        // After jumping down, move FORWARD (not back to main line which is the cliff!)
-        // From freeCell (-904, -921), move forward to (-905, -921) along lower level
-        Coord nextCell = freeCell.add(dir); // Move forward from free cell
+        // After jumping down, move DIAGONALLY forward to return to main line
+        // From freeCell (-1,2), move to (0,3) - forward AND right (back to main line)
+        // This is: freeCell + dir + sideDir (where sideDir is towards main line)
+        Coord sideDir;
+        if (dir.x != 0) {
+            // Moving East/West, side is Y direction
+            // If freeCell.y < firstCliff.y (went North), need to go South to return
+            sideDir = Coord.of(0, firstCliff.y - freeCell.y);
+        } else {
+            // Moving North/South, side is X direction
+            sideDir = Coord.of(firstCliff.x - freeCell.x, 0);
+        }
         
-        log(gui, "Moving forward from free cell: " + finalPos + " -> " + nextCell);
+        Coord nextCell = freeCell.add(dir).add(sideDir); // Diagonal move
+        
+        log(gui, "Moving diagonally from free cell: " + finalPos + " -> " + nextCell + " (back to main line)");
 
         Coord2d nextWorld = nextCell.mul(MCache.tilesz).add(MCache.tilesz.div(2));
         int moveClicks = 0;
@@ -707,13 +718,13 @@ public class CliffCrossingTestBot implements Action {
         while (moveClicks < 10) {
             Coord currentPos = NUtils.player().rc.div(MCache.tilesz).floor();
             if (currentPos.equals(nextCell)) {
-                log(gui, "Reached next cell " + nextCell);
+                log(gui, "Reached diagonal cell " + nextCell);
                 break;
             }
 
             NUtils.getGameUI().map.wdgmsg("click", Coord.z, nextWorld.floor(OCache.posres), 1, 0);
             moveClicks++;
-            log(gui, "Move click " + moveClicks + " at " + nextCell + ", pos=" + currentPos);
+            log(gui, "Diagonal click " + moveClicks + " at " + nextCell + ", pos=" + currentPos);
 
             waitForPositionChange(gui, 2000);
             Thread.sleep(100);
