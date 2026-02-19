@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="lib/jglob.jar"/>
+	<classpathentry kind="lib" path="etc/json-java.jar"/>
+	<classpathentry kind="lib" path="etc/postgresql-42.7.5.jar"/>
+	<classpathentry kind="lib" path="etc/sqlite-jdbc-3.49.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/ext/jogl/jogl-all.jar"/>
+	<classpathentry kind="lib" path="lib/ext/jogl/gluegen-rt.jar"/>
+	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-fat.jar"/>
+	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-awt.jar"/>
+	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-opengl-fat.jar"/>
+	<classpathentry kind="lib" path="lib/ext/steamworks/steamworks4j.jar"/>
+	<classpathentry kind="lib" path="lib/ext/builtin-res.jar"/>
+	<classpathentry kind="lib" path="lib/ext/hafen-res.jar"/>
+	<classpathentry kind="lib" path="build/nurgling-res.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path="build/classes"/>
+</classpath>

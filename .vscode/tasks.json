@@ -1,0 +1,148 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Ant: Build Environment",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "build-env"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Build Client",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "hafen-client"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Build JAR",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "jar"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Build All (JARS)",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "jars"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Build BIN",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "bin"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Build Resources",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "resources"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Run",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "run"
+            ],
+            "group": "test",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Clean",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "clean"
+            ],
+            "group": "clean",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Pre-Release",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "pre-release"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Ant: Release",
+            "type": "process",
+            "command": "ant",
+            "args": [
+                "release"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        }
+    ]
+}

@@ -1,0 +1,45 @@
+{
+    "java.project.sourcePaths": [
+        "src"
+    ],
+    "java.project.referencedLibraries": [
+        "lib/**/*.jar",
+        "lib/ext/**/*.jar",
+        "etc/*.jar",
+        "build/*.jar",
+        "bin/*.jar"
+    ],
+    "java.project.outputPath": "build/classes",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.import.gradle.enabled": false,
+    "java.import.maven.enabled": false,
+    "java.import.ant.enabled": true,
+    "java.completion.importOrder": [
+        "#",
+        "java",
+        "javax",
+        "org",
+        "com",
+        "haven",
+        "dolda",
+        "nurgling",
+        ""
+    ],
+    "java.completion.favoriteStaticMembers": [
+        "org.junit.Assert.*",
+        "org.hamcrest.Matchers.*",
+        "org.mockito.Mockito.*"
+    ],
+    "java.editor.saveActions": "none",
+    "java.saveActions.cleanup": false,
+    "files.exclude": {
+        "**/*.class": true,
+        "**/*.jar": true
+    },
+    "files.watcherExclude": {
+        "**/build/**": true,
+        "**/bin/**": true,
+        "**/.git/**": true
+    }
+}

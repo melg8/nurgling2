@@ -1,0 +1,48 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Launch Nurgling",
+            "request": "launch",
+            "mainClass": "haven.MainFrame",
+            "projectName": "nurgling2",
+            "vmArgs": "--add-exports=java.base/java.lang=ALL-UNNAMED --add-exports=java.desktop/sun.awt=ALL-UNNAMED --add-exports=java.desktop/sun.java2d=ALL-UNNAMED --enable-native-access=ALL-UNNAMED",
+            "args": "",
+            "env": {
+                "sun.java2d.uiScale.enabled": "false",
+                "java.net.preferIPv6Addresses": "system"
+            },
+            "classPaths": [
+                "${projectDir}/build/hafen.jar",
+                "${projectDir}/bin/hafen.jar",
+                "${projectDir}/lib/ext/jogl/jogl-all.jar",
+                "${projectDir}/lib/ext/jogl/gluegen-rt.jar",
+                "${projectDir}/lib/ext/lwjgl/lwjgl-fat.jar",
+                "${projectDir}/lib/ext/lwjgl/lwjgl-awt.jar",
+                "${projectDir}/lib/ext/lwjgl/lwjgl-opengl-fat.jar",
+                "${projectDir}/lib/ext/steamworks/steamworks4j.jar",
+                "${projectDir}/lib/ext/builtin-res.jar",
+                "${projectDir}/lib/ext/hafen-res.jar",
+                "${projectDir}/build/nurgling-res.jar",
+                "${projectDir}/etc/json-java.jar",
+                "${projectDir}/etc/postgresql-42.7.5.jar",
+                "${projectDir}/etc/sqlite-jdbc-3.49.1.0.jar",
+                "${projectDir}/lib/jglob.jar"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "Launch Nurgling (Java 8)",
+            "request": "launch",
+            "mainClass": "haven.MainFrame",
+            "projectName": "nurgling2",
+            "vmArgs": "",
+            "args": "",
+            "env": {
+                "sun.java2d.uiScale.enabled": "false",
+                "java.net.preferIPv6Addresses": "system"
+            }
+        }
+    ]
+}
