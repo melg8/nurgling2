@@ -74,6 +74,11 @@ public class CliffCrossingTestBot implements Action {
     public Results run(NGameUI gui) throws InterruptedException {
         GameUI gameui = NUtils.getGameUI();
 
+        // Reset state for new run
+        cancelled = false;
+        directionLocked = false;
+        lookDir = 1;  // Reset to North
+        
         // Create log file
         try {
             String dateStr = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
@@ -112,37 +117,15 @@ public class CliffCrossingTestBot implements Action {
             log(gui, "=== Cliff Crossing Test ===");
             log(gui, "Turn your character to set direction");
             log(gui, "Bot will start automatically in 5 seconds...");
-            
-            // Wait 5 seconds for user to set direction
-            for (int i = 5; i > 0 && !cancelled; i--) {
-                // Get current look direction from character
-                int charDir = getCharacterLookDirection();
-                if (charDir != -1 && charDir != lookDir) {
-                    lookDir = charDir;
-                    log(gui, "Direction updated: " + dirName(lookDir));
-                    
-                    // Update visualization to show new direction
-                    Coord playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
-                    List<Coord> pathCells = getPathCells(playerPos, 20);
-                    updateVisualizationNoCliff(playerPos, pathCells, gui);
-                }
-                
-                log(gui, "Starting in " + i + "...");
-                Thread.sleep(1000);
-            }
-            
-            if (cancelled) {
-                log(gui, "Cliff crossing test cancelled");
-                return Results.FAIL();
-            }
-            
-            log(gui, "Direction locked: " + dirName(lookDir));
-            log(gui, "Starting cliff crossing test...");
-            
-            // Get initial position
-            Coord playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
 
-            // Register full path overlay in render tree ONCE
+            // Get initial direction from character
+            int initialCharDir = getCharacterLookDirection();
+            if (initialCharDir != -1) {
+                lookDir = initialCharDir;
+                log(gui, "Initial direction: " + dirName(lookDir));
+            }
+
+            // Register full path overlay in render tree BEFORE updating visualization
             fullPathSlot = gameui.map.basic.add(new RenderTree.Node() {
                 @Override
                 public void added(RenderTree.Slot slot) {
@@ -170,6 +153,44 @@ public class CliffCrossingTestBot implements Action {
             
             log(gui, "Full path overlay registered, slots=" + fullPathSlots.size());
 
+            // Update visualization immediately
+            Coord playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+            List<Coord> pathCells = getPathCells(playerPos, 20);
+            updateVisualizationNoCliff(playerPos, pathCells, gui);
+            log(gui, "Path visualization shown for direction: " + dirName(lookDir));
+
+            // Wait 5 seconds for user to set direction
+            for (int i = 5; i > 0 && !cancelled; i--) {
+                // Get current look direction from character
+                int charDir = getCharacterLookDirection();
+                if (charDir != -1 && charDir != lookDir) {
+                    lookDir = charDir;
+                    log(gui, "Direction updated: " + dirName(lookDir));
+
+                    // Update visualization to show new direction
+                    playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+                    pathCells = getPathCells(playerPos, 20);
+                    updateVisualizationNoCliff(playerPos, pathCells, gui);
+                }
+
+                log(gui, "Starting in " + i + "...");
+                Thread.sleep(1000);
+            }
+            
+            if (cancelled) {
+                log(gui, "Cliff crossing test cancelled");
+                return Results.FAIL();
+            }
+            
+            log(gui, "Direction locked: " + dirName(lookDir));
+            log(gui, "Starting cliff crossing test...");
+
+            // Get current position (already declared above)
+            playerPos = NUtils.player().rc.div(MCache.tilesz).floor();
+
+            // fullPathSlot already registered above, just update visualization
+            log(gui, "Starting movement in direction: " + dirName(lookDir));
+            
             // Main test loop - move forward until 2 cells beyond cliff
             playerPos = executeCliffCrossing(gui, playerPos);
             
