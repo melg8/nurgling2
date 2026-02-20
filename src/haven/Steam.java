@@ -296,7 +296,7 @@ public class Steam {
 	try(Waiter w = new Waiter("onGetTicketForWebApi")) {
 	    SteamAuthTicket tkt;
 	    synchronized(this) {
-		tkt = api.user.getAuthTicketForWebApi("");
+		tkt = api.user.getAuthTicketForWebApi();
 	    }
 	    while(true) {
 		Object[] cb = w.get();
@@ -502,8 +502,8 @@ public class Steam {
     }
 
     public Collection<UGItem> ugitems() {
-	SteamPublishedFileID[] items = new SteamPublishedFileID[(int)api.ugc.getNumSubscribedItems(false)];
-	int n = api.ugc.getSubscribedItems(items, false);
+	SteamPublishedFileID[] items = new SteamPublishedFileID[(int)api.ugc.getNumSubscribedItems()];
+	int n = api.ugc.getSubscribedItems(items);
 	Collection<UGItem> ret = new ArrayList<>();
 	for(int i = 0; i < n; i++)
 	    ret.add(new UGItem(items[i]));

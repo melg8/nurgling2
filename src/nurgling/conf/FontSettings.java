@@ -10,25 +10,53 @@ import java.util.*;
 public class FontSettings implements JConf {
     private static final Font serif = new Font("Serif", Font.PLAIN, 10);
     private static final Font sans  = new Font("Sans", Font.PLAIN, 10);
-    private static final Font fraktur = Resource.local().loadwait("ui/fraktur").flayer(Resource.Font.class).font;
-    private static final Font roboto = Resource.local().loadwait("nurgling/font/roboto").flayer(Resource.Font.class).font.deriveFont(Font.PLAIN);
+    private static Font fraktur;
+    private static Font roboto;
+    private static Font helvetica;
 
-    private static final Font helvetica = Resource.local().loadwait("nurgling/font/helvetica").flayer(Resource.Font.class).font.deriveFont(Font.PLAIN);
+    private static Font loadFont(String name, Font fallback) {
+        try {
+            return Resource.local().loadwait(name).flayer(Resource.Font.class).font;
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private static Font getFraktur() {
+        if (fraktur == null) {
+            fraktur = loadFont("ui/fraktur", sans);
+        }
+        return fraktur;
+    }
+
+    private static Font getRoboto() {
+        if (roboto == null) {
+            roboto = loadFont("nurgling/font/roboto", sans).deriveFont(Font.PLAIN);
+        }
+        return roboto;
+    }
+
+    private static Font getHelvetica() {
+        if (helvetica == null) {
+            helvetica = loadFont("nurgling/font/helvetica", sans).deriveFont(Font.PLAIN);
+        }
+        return helvetica;
+    }
 
     public Font getFont(String name)
     {
         if (name == null)
             return sans;
         if(name.equals( "Inter"))
-            return helvetica;
+            return getHelvetica();
         else if(name.equals("Roboto"))
-            return roboto;
+            return getRoboto();
         else if(name.equals("Sans"))
             return sans;
         else if(name.equals("Serif"))
             return serif;
         else if(name.equals("Fractur"))
-            return fraktur;
+            return getFraktur();
         return sans;
     }
 

@@ -108,9 +108,9 @@
       <classpath>
 	<pathelement path="lib/ext/jogl/jogl-all.jar" />
 	<pathelement path="lib/ext/jogl/gluegen-rt.jar" />
-	<pathelement path="lib/ext/lwjgl/lwjgl-3.3.3.jar" />
+	<pathelement path="lib/ext/lwjgl/lwjgl-fat.jar" />
 	<pathelement path="lib/ext/lwjgl/lwjgl-awt.jar" />
-	<pathelement path="lib/ext/lwjgl/lwjgl-opengl-3.3.3.jar" />
+	<pathelement path="lib/ext/lwjgl/lwjgl-opengl-fat.jar" />
 	<pathelement path="lib/ext/steamworks/steamworks4j.jar" />
     <pathelement path="etc/json-java.jar" />
     <pathelement path="etc/postgresql-42.7.5.jar" />
