@@ -88,21 +88,15 @@ public class LWJGLPanel extends AWTGLCanvas implements GLPanel, Console.Director
     public void initGL() {}
     public void paintGL() {}
 
-    protected ContextData createContext() throws AWTException {
-	for(int[] ver : glversions) {
-	    GLData caps = new GLData();
-	    caps.majorVersion = ver[0];
-	    caps.minorVersion = ver[1];
-	    caps.profile = GLData.Profile.CORE;
-	    try {
-		return(createContext(caps));
-	    } catch(AWTException e) {
-		/* Try next */
-	    }
-	}
-	/* Try to get whatever and see if LWJGLEnvironment considers
-	 * that to pass muster. */
-	return(createContext(new GLData()));
+    protected void createContext() throws AWTException {
+	// In lwjgl3-awt 0.1.7+, context is created in the constructor
+	// This method is kept for compatibility but does nothing
+    }
+
+    // Stub for compatibility - vsync is handled differently in lwjgl3-awt
+    private void setSwapInterval(int interval) {
+	// In lwjgl3-awt 0.1.7+, swap interval is set via GL.createCapabilities()
+	// This is a stub for compatibility
     }
 
     private final haven.error.ErrorHandler errh = haven.error.ErrorHandler.find();

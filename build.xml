@@ -7,7 +7,7 @@
   <target name="build-env">
     <mkdir dir="build" />
     <mkdir dir="build/classes" />
-    <available property="has-res-jar" file="bin/builtin-res.jar" />
+    <available property="has-res-jar" file="lib/ext/builtin-res.jar" />
     <available property="unpacked-lib" file="build/classes-lib" />
   </target>
 
@@ -76,37 +76,41 @@
     <extlib name="steamworks" path="lib/ext/steamworks" url="${ext-lib-base}/steamworks/current" />
   </target>
 
-    <target name="extlib/jogl-arm" depends="extlib/jogl">
-        <mkdir dir="lib/ext/jogl" />
-        <get dest="lib/ext/jogl/" verbose="true">
-            <url url="https://jogamp.org/deployment/v2.5.0/jar/jogl-all.jar" />
-            <url url="https://jogamp.org/deployment/v2.5.0/jar/jogl-all-natives-macosx-universal.jar" />
-            <url url="https://jogamp.org/deployment/v2.5.0/jar/gluegen-rt.jar" />
-            <url url="https://jogamp.org/deployment/v2.5.0/jar/gluegen-rt-natives-macosx-universal.jar" />
-        </get>
-        <mkdir dir="lib/ext/jogl/natives/macosx-universal" />
-        <unjar src="lib/ext/jogl/jogl-all-natives-macosx-universal.jar" dest="lib/ext/jogl">
-            <patternset includes="natives/**" />
-        </unjar>
-        <unjar src="lib/ext/jogl/gluegen-rt-natives-macosx-universal.jar" dest="lib/ext/jogl">
-            <patternset includes="natives/**" />
-        </unjar>
-    </target>
+  <target name="extlib/jogl-arm" depends="extlib/jogl">
+    <available property="extlib/has-jogl-arm" file="lib/ext/jogl/jogl-all.jar" />
+  </target>
+
+  <target name="extlib/jogl-arm-download" depends="extlib/jogl-arm" unless="extlib/has-jogl-arm">
+    <mkdir dir="lib/ext/jogl" />
+    <get dest="lib/ext/jogl/" verbose="true" usetimestamp="true">
+      <url url="https://jogamp.org/deployment/v2.5.0/jar/jogl-all.jar" />
+      <url url="https://jogamp.org/deployment/v2.5.0/jar/jogl-all-natives-macosx-universal.jar" />
+      <url url="https://jogamp.org/deployment/v2.5.0/jar/gluegen-rt.jar" />
+      <url url="https://jogamp.org/deployment/v2.5.0/jar/gluegen-rt-natives-macosx-universal.jar" />
+    </get>
+    <mkdir dir="lib/ext/jogl/natives/macosx-universal" />
+    <unjar src="lib/ext/jogl/jogl-all-natives-macosx-universal.jar" dest="lib/ext/jogl">
+      <patternset includes="natives/**" />
+    </unjar>
+    <unjar src="lib/ext/jogl/gluegen-rt-natives-macosx-universal.jar" dest="lib/ext/jogl">
+      <patternset includes="natives/**" />
+    </unjar>
+  </target>
 
   <target name="hafen-client" depends="build-env, extlib/jogl, extlib/lwjgl-gl, extlib/steamworks, resources">
     <condition property="explicit-annotations">
       <javaversion atleast="21" />
     </condition>
     <javac srcdir="src" destdir="build/classes" debug="on"
-	   source="1.8" target="1.8" includeantruntime="no"
-           encoding="UTF-8"
+	   source="21" target="21" includeantruntime="no"
+           encoding="UTF-8" fork="true" executable="C:/Program Files/Eclipse Adoptium/jdk-25.0.2.10-hotspot/bin/javac"
 	   bootclasspath="${boot-classpath}">
       <classpath>
 	<pathelement path="lib/ext/jogl/jogl-all.jar" />
 	<pathelement path="lib/ext/jogl/gluegen-rt.jar" />
-	<pathelement path="lib/ext/lwjgl/lwjgl-fat.jar" />
+	<pathelement path="lib/ext/lwjgl/lwjgl-3.3.3.jar" />
 	<pathelement path="lib/ext/lwjgl/lwjgl-awt.jar" />
-	<pathelement path="lib/ext/lwjgl/lwjgl-opengl-fat.jar" />
+	<pathelement path="lib/ext/lwjgl/lwjgl-opengl-3.3.3.jar" />
 	<pathelement path="lib/ext/steamworks/steamworks4j.jar" />
     <pathelement path="etc/json-java.jar" />
     <pathelement path="etc/postgresql-42.7.5.jar" />
@@ -175,7 +179,7 @@
     <copy file="local-config.properties" tofile="build/haven-config.properties" failonerror="false" quiet="true" />
   </target>
 
-  <target name="bin" depends="jar, extlib/jogl-arm, extlib/lwjgl-gl, extlib/steamworks, res-jar">
+  <target name="bin" depends="jar, extlib/jogl-arm-download, extlib/lwjgl-gl, extlib/steamworks, res-jar">
     <mkdir dir="bin" />
     <copy todir="bin">
       <fileset dir="build">
@@ -191,6 +195,9 @@
     </copy>
     <copy file="etc/ansgar-config.properties" tofile="bin/haven-config.properties" />
     <chmod file="bin/hafen.jar" perm="a+x" />
+    <!-- Copy play scripts to bin -->
+    <copy file="play.bat" todir="bin" />
+    <copy file="play_proxy.bat" todir="bin" />
   </target>
 
   <target name="deftgt" depends="jars, bin" />

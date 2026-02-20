@@ -7,13 +7,13 @@
 	<classpathentry kind="lib" path="etc/sqlite-jdbc-3.49.1.0.jar"/>
 	<classpathentry kind="lib" path="lib/ext/jogl/jogl-all.jar"/>
 	<classpathentry kind="lib" path="lib/ext/jogl/gluegen-rt.jar"/>
-	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-fat.jar"/>
+	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-3.3.3.jar"/>
 	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-awt.jar"/>
-	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-opengl-fat.jar"/>
+	<classpathentry kind="lib" path="lib/ext/lwjgl/lwjgl-opengl-3.3.3.jar"/>
 	<classpathentry kind="lib" path="lib/ext/steamworks/steamworks4j.jar"/>
 	<classpathentry kind="lib" path="lib/ext/builtin-res.jar"/>
 	<classpathentry kind="lib" path="lib/ext/hafen-res.jar"/>
 	<classpathentry kind="lib" path="build/nurgling-res.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-21"/>
 	<classpathentry kind="output" path="build/classes"/>
 </classpath>

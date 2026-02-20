@@ -18,9 +18,9 @@
                 "${projectDir}/bin/hafen.jar",
                 "${projectDir}/lib/ext/jogl/jogl-all.jar",
                 "${projectDir}/lib/ext/jogl/gluegen-rt.jar",
-                "${projectDir}/lib/ext/lwjgl/lwjgl-fat.jar",
+                "${projectDir}/lib/ext/lwjgl/lwjgl-3.3.3.jar",
                 "${projectDir}/lib/ext/lwjgl/lwjgl-awt.jar",
-                "${projectDir}/lib/ext/lwjgl/lwjgl-opengl-fat.jar",
+                "${projectDir}/lib/ext/lwjgl/lwjgl-opengl-3.3.3.jar",
                 "${projectDir}/lib/ext/steamworks/steamworks4j.jar",
                 "${projectDir}/lib/ext/builtin-res.jar",
                 "${projectDir}/lib/ext/hafen-res.jar",
@@ -30,19 +30,6 @@
                 "${projectDir}/etc/sqlite-jdbc-3.49.1.0.jar",
                 "${projectDir}/lib/jglob.jar"
             ]
-        },
-        {
-            "type": "java",
-            "name": "Launch Nurgling (Java 8)",
-            "request": "launch",
-            "mainClass": "haven.MainFrame",
-            "projectName": "nurgling2",
-            "vmArgs": "",
-            "args": "",
-            "env": {
-                "sun.java2d.uiScale.enabled": "false",
-                "java.net.preferIPv6Addresses": "system"
-            }
         }
     ]
 }
