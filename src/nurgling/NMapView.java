@@ -751,6 +751,22 @@ public class NMapView extends MapView
     @Override
     public void tick(double dt)
     {
+        // Create permanent map markers for objects (including cave passages)
+        // This is called every tick, so markers are created even when map window is closed
+        if (ui != null && ui.gui != null && ui.gui.mmap != null) {
+            ui.gui.mmap.markobjs();
+        }
+        
+        // Debug: Print marker count occasionally (every ~10 seconds)
+        if (ui != null && ui.gui != null && ui.gui.mapfile != null && 
+            System.currentTimeMillis() % 10000 < 100) {
+            String msg = "[NMapView.tick] Total markers: " + ui.gui.mapfile.file.markers.size();
+            System.out.println(msg);
+            try (java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markers.log", true))) {
+                log.println(msg);
+            } catch (Exception e) {}
+        }
+        
         checkTempMarks();
         synchronized (glob.map.areas)
         {

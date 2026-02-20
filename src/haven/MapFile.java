@@ -118,6 +118,11 @@ public class MapFile {
 
     private void save() {
 	checklock();
+	String msg = "[MapFile.save] Saving " + markers.size() + " markers to disk...";
+	System.out.println(msg);
+	try (java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markers.log", true))) {
+	    log.println(msg);
+	} catch (Exception e) {}
 	OutputStream fp;
 	try {
 	    fp = sstore("index");
@@ -132,6 +137,11 @@ public class MapFile {
 	    out.addint32(markers.size());
 	    for(Marker mark : markers)
 		savemarker(out, mark);
+	    msg = "[MapFile.save] Saved " + markers.size() + " markers successfully";
+	    System.out.println(msg);
+	    try (java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markers.log", true))) {
+		log.println(msg);
+	    } catch (Exception e) {}
 	}
     }
 
@@ -348,6 +358,13 @@ public class MapFile {
 		    smarkers.put(((SMarker)mark).oid, (SMarker)mark);
 		defersave();
 		markerseq++;
+		String msg = "[MapFile.add] Added marker: " + mark.nm + " (type=" + (mark instanceof SMarker ? "S" : "P") + ", oid=" + (mark instanceof SMarker ? ((SMarker)mark).oid : 0) + ")";
+		System.out.println(msg);
+		System.out.println("[MapFile.add] Total markers now: " + markers.size());
+		try (java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markers.log", true))) {
+		    log.println(msg);
+		    log.println("[MapFile.add] Total markers now: " + markers.size());
+		} catch (Exception e) {}
 	    }
 	} finally {
 	    lock.writeLock().unlock();

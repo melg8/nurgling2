@@ -282,6 +282,8 @@ public class MiniMap extends Widget
 	public void update(Coord2d rc, double ang) {
 	    this.rc = rc;
 	    this.ang = ang;
+	    // Reset markchecked to allow re-checking for marker creation
+	    this.markchecked = false;
 	}
 
 	public void dispupdate() {
@@ -613,6 +615,14 @@ public class MiniMap extends Widget
 		    if(icon != null) {
                 GobIcon.Setting conf = iconconf.get(icon.icon());
 			if((conf != null) && conf.show) {
+			    // Debug: Log cave passage icons
+			    if(icon.icon() != null && icon.icon().res.name.equals("gfx/hud/mmap/cave")) {
+				String msg = "[findicons] Found cave passage: " + icon.icon().res.name + ", conf.show=" + conf.show + ", conf.getmarkablep()=" + conf.getmarkablep() + ", conf.getmarkp()=" + conf.getmarkp();
+				System.out.println(msg);
+				try (java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markobjs.log", true))) {
+				    log.println(msg);
+				} catch (Exception e) {}
+			    }
 			    DisplayIcon disp = pmap.remove(icon);
 			    if(disp == null)
 				disp = new DisplayIcon(icon, conf);
@@ -754,14 +764,71 @@ public class MiniMap extends Widget
     }
 
     public void markobjs() {
+	// Debug log file
+	java.io.PrintWriter debugLog = null;
+	try {
+	    debugLog = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markobjs.log", true));
+	} catch(Exception e) {}
+	final java.io.PrintWriter finalLog = debugLog;
+	
+	// Log total icons count
+	String msg = "[markobjs] Checking " + icons.size() + " icons";
+	System.out.println(msg);
+	if(finalLog != null) {
+	    finalLog.println(msg);
+	    finalLog.flush();
+	}
+	
+	// Log all icon names for debugging
+	for(DisplayIcon icon : icons) {
+	    if(icon.icon != null && icon.icon.res != null) {
+		msg = "[markobjs] Icon: " + icon.icon.res.name;
+		System.out.println(msg);
+		if(finalLog != null) {
+		    finalLog.println(msg);
+		    finalLog.flush();
+		}
+	    }
+	}
+	
 	for(DisplayIcon icon : icons) {
 	    try {
 		if(icon.markchecked)
 		    continue;
 		GobIcon.Icon micon = icon.icon;
+		if(micon == null)
+		    continue;
+		
+		// Log all cave passage icons regardless of settings
+		boolean isCavePassage = micon.res.name.equals("gfx/hud/mmap/cave");
+		if(isCavePassage) {
+		    msg = "[markobjs] Found cave passage icon: " + micon.res.name;
+		    System.out.println(msg);
+		    if(finalLog != null) {
+			finalLog.println(msg);
+			finalLog.flush();
+		    }
+		}
+		
 		if(!icon.conf.getmarkablep() || !(micon instanceof GobIcon.ImageIcon)) {
+		    if(isCavePassage) {
+			msg = "[markobjs] Skipped: getmarkablep=" + icon.conf.getmarkablep() + ", isImageIcon=" + (micon instanceof GobIcon.ImageIcon);
+			System.out.println(msg);
+			if(finalLog != null) {
+			    finalLog.println(msg);
+			    finalLog.flush();
+			}
+		    }
 		    icon.markchecked = true;
 		    continue;
+		}
+		if(isCavePassage) {
+		    msg = "[markobjs] Cave passage is markable, getmarkp()=" + icon.conf.getmarkp();
+		    System.out.println(msg);
+		    if(finalLog != null) {
+			finalLog.println(msg);
+			finalLog.flush();
+		    }
 		}
 		Coord tc = icon.gob.rc.floor(tilesz);
 		MCache.Grid obg = ui.sess.glob.map.getgrid(tc.div(cmaps));
@@ -781,11 +848,27 @@ public class MiniMap extends Widget
 			    mid = new SMarker(info.seg, sc, tt.text(), 0, new Resource.Saved(Resource.remote(), micon.res.name, micon.res.ver));
 			    file.add(mid);
 			    isNew = true;
+			    if(isCavePassage) {
+				msg = "[markobjs] Created marker for " + micon.res.name + ": " + tt.text();
+				System.out.println(msg);
+				if(finalLog != null) {
+				    finalLog.println(msg);
+				    finalLog.flush();
+				}
+			    }
 			} else {
 			    mid = null;
 			}
 		    } else {
 			mid = prev;
+			if(isCavePassage) {
+			    msg = "[markobjs] Marker already exists for " + micon.res.name;
+			    System.out.println(msg);
+			    if(finalLog != null) {
+				finalLog.println(msg);
+				finalLog.flush();
+			    }
+			}
 		    }
 		} finally {
 		    file.lock.writeLock().unlock();
@@ -795,7 +878,7 @@ public class MiniMap extends Widget
 			icon.gob.setattr(new MarkerID(icon.gob, mid));
 		    }
 		    // Upload only new markers to web map
-		    if(isNew && ui.core != null && ui.core.mappingClient != null && 
+		    if(isNew && ui.core != null && ui.core.mappingClient != null &&
 		       (Boolean) nurgling.NConfig.get(nurgling.NConfig.Key.autoMapper)) {
 			ui.core.mappingClient.uploadSMarker(icon.gob, mid);
 		    }
@@ -805,6 +888,7 @@ public class MiniMap extends Widget
 		continue;
 	    }
 	}
+	if(finalLog != null) finalLog.close();
     }
 
     public boolean filter(DisplayIcon icon) {

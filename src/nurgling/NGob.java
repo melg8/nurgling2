@@ -28,6 +28,7 @@ import nurgling.widgets.NQuestInfo;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -49,6 +50,9 @@ public class NGob
     boolean isDynamic = false;
     private boolean isGate = false;
     protected long modelAttribute = -1;
+    
+    // Debug: Track logged icon resources to avoid spam
+    private static final Set<String> loggedIconResources = new HashSet<>();
     final Gob parent;
     public long seq;
     public int lastUpdate = 0;
@@ -415,7 +419,7 @@ public class NGob
             // Try to create temp mark immediately if conditions are met
             // This prevents marks from being lost when objects disappear quickly
             tryCreateTempMark((GobIcon) a, parent);
-            
+
             // Also add to delayed tasks as backup (for ring overlay and retry if immediate creation failed)
             delayedOverlayTasks.add(new DelayedOverlayTask(
                     gob ->
@@ -426,7 +430,7 @@ public class NGob
                     {
                         // Try creating temp mark again (will skip if already exists)
                         tryCreateTempMark((GobIcon) a, gob);
-                        
+
                         // Add ring overlay if enabled in settings
                         if (nurgling.overlays.NGobIconRing.shouldShowRing(gob))
                         {
@@ -617,6 +621,21 @@ public class NGob
                 {
                     if (NStyle.iconMap.containsKey(name))
                     {
+                        // Debug: Log when adding icon from iconMap (only once per resource name)
+                        if (!loggedIconResources.contains(name)) {
+                            loggedIconResources.add(name);
+                            String targetIcon = NStyle.iconMap.get(name).name;
+                            String msg = "[NGob] Adding GobIcon for " + name + " => " + targetIcon;
+                            System.out.println(msg);
+                            try (java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_gobicon.log", true))) {
+                                log.println(msg);
+                                // Also log cave passages separately
+                                if (targetIcon.equals("gfx/hud/mmap/cave")) {
+                                    log.println("[NGob] *** CAVE PASSAGE DETECTED: " + name + " => " + targetIcon + " ***");
+                                }
+                            } catch (Exception e) {}
+                        }
+                        
                         //TODO С‚СЂСЋС„РµР»СЊ
                         parent.setattr(new GobIcon(parent, NStyle.iconMap.get(name), new byte[0]));
                     }

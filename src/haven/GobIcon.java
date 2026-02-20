@@ -342,15 +342,22 @@ public class GobIcon extends GAttrib {
 	public boolean getmarkablep() {
 	    if(icon != null)
 		return(icon.markable() != Icon.Markable.UNMARKABLE);
-	    // Fallback check using res.name for mm/up and mm/down when icon is not yet loaded
-	    return(res.name.equals("mm/up") || res.name.equals("mm/down"));
+	    // Fallback check for cave passages when icon is not yet loaded
+	    return(res.name.equals("gfx/hud/mmap/cave"));
 	}
 
 	public boolean getmarkp() {
 	    if(markset)
 		return(mark);
-	    if(icon != null)
+	    if(icon != null) {
+		// Auto-mark cave passages by default
+		if(icon.res.name.equals("gfx/hud/mmap/cave"))
+		    return(true);
 		return(icon.markable() == Icon.Markable.DEFAULT);
+	    }
+	    // Auto-mark cave passages by default
+	    if(res.name.equals("gfx/hud/mmap/cave"))
+		return(true);
 	    return(false);
 	}
     }
