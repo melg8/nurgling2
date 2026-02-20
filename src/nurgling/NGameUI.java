@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import static haven.Inventory.invsq;
 
@@ -138,6 +140,61 @@ public class NGameUI extends GameUI
         initWorldSpeedMap();
         Float actualWorldSpeed = WORLD_SPEED_MAP.get(genus);
         worldSpeed = Objects.requireNonNullElse(actualWorldSpeed, DEFAULT_WORLD_SPEED);
+        
+        // TEST: Clear all map markers on login (one-time for testing)
+        clearAllMapMarkers();
+    }
+    
+    /**
+     * Clear all map markers (for testing purposes)
+     */
+    private void clearAllMapMarkers() {
+        logTest("clearAllMapMarkers() called");
+        logTest("mapfile = " + mapfile);
+        try {
+            if (mapfile != null) {
+                logTest("mapfile.file = " + mapfile.file);
+                if (mapfile.file != null) {
+                    haven.MapFile file = mapfile.file;
+                    logTest("Acquiring lock...");
+                    synchronized (file.lock) {
+                        int markerCount = file.markers.size();
+                        logTest("Found " + markerCount + " markers");
+                        logTest("Clearing markers...");
+                        file.markers.clear();
+                        file.smarkers.clear();
+                        file.markerseq++;
+                        logTest("Calling defersave()...");
+                        file.defersave();
+                        logTest("All map markers cleared!");
+                    }
+                }
+            } else {
+                logTest("Map file not available yet, will try later");
+                // Try again after a short delay
+                new Timer().schedule(new TimerTask() {
+                    public void run() {
+                        try {
+                            clearAllMapMarkers();
+                        } catch(Exception e) {
+                            logTest("Retry failed: " + e);
+                        }
+                    }
+                }, 2000);
+            }
+        } catch (Exception e) {
+            logTest("Error clearing map markers: " + e);
+            e.printStackTrace();
+        }
+    }
+    
+    private void logTest(String msg) {
+        System.out.println("[TEST] " + msg);
+        try {
+            java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markers.log", true));
+            log.println("[TEST] " + msg);
+            log.close();
+        } catch(Exception e) {}
     }
 
     private void initHeavyWidgets() {

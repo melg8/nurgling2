@@ -223,7 +223,86 @@ public class MiniMap extends Widget
 	    } catch(Loading l) {
 	    }
 	}
+	
+	// Create markers FIRST (before checking transitions)
 	icons = findicons(icons);
+	
+	// Then check for cave transitions (so markers exist when we check)
+	checkCaveTransition();
+    }
+    
+    // Track last segment for cave transition detection
+    private Long lastCaveSegmentId = null;
+    private haven.Coord lastKnownPosition = null;  // Last known player position
+    private haven.Coord transitionPosition = null;  // Player position at moment of transition
+    private long lastTransitionTime = 0;  // Time of last transition (for debounce)
+    
+    private void checkCaveTransition() {
+        try {
+            if (sessloc == null || sessloc.seg == null) {
+                lastCaveSegmentId = null;
+                transitionPosition = null;
+                return;
+            }
+            
+            long currentSegId = sessloc.seg.id;
+            haven.Coord currentPos = sessloc.tc;
+            
+            // Always update last known position
+            if (currentPos != null) {
+                lastKnownPosition = currentPos;
+            }
+            
+            // Check if segment changed
+            if (lastCaveSegmentId != null && lastCaveSegmentId != currentSegId) {
+                // Debounce: don't process same transition twice within 3 seconds
+                long now = System.currentTimeMillis();
+                if (now - lastTransitionTime < 3000) {
+                    logCave("[CaveTransition] Skipping duplicate transition (debounce)");
+                    lastCaveSegmentId = currentSegId;
+                    return;
+                }
+                
+                logCave("[CaveTransition] *** Segment CHANGED! " + lastCaveSegmentId + " -> " + currentSegId + " ***");
+                
+                // Use last known position (before transition) for finding cave markers
+                transitionPosition = lastKnownPosition;
+                logCave("[CaveTransition] Transition position (last known): " + transitionPosition);
+                
+                // Create markers FIRST (so they exist when we check for connections)
+                logCave("[CaveTransition] Creating markers before checking transitions...");
+                if (ui != null && ui.gui != null && ui.gui.mmap != null) {
+                    ui.gui.mmap.markobjs();
+                }
+                
+                logCave("[CaveTransition] About to call onLevelTransition()...");
+                
+                // Notify cave connection manager - pass transition position
+                try {
+                    nurgling.tools.CaveConnectionManager.getInstance().onLevelTransition(
+                        lastCaveSegmentId, currentSegId, false, transitionPosition);
+                    logCave("[CaveTransition] onLevelTransition() completed successfully");
+                    lastTransitionTime = now;  // Record transition time
+                } catch(Exception e) {
+                    logCave("[CaveTransition] Exception in onLevelTransition: " + e);
+                    e.printStackTrace();
+                }
+            }
+            
+            lastCaveSegmentId = currentSegId;
+            
+        } catch (Exception e) {
+            logCave("[CaveTransition] Error: " + e);
+        }
+    }
+    
+    private void logCave(String msg) {
+        System.out.println(msg);
+        try {
+            java.io.PrintWriter log = new java.io.PrintWriter(new java.io.FileWriter("nurgling_markers.log", true));
+            log.println(msg);
+            log.close();
+        } catch(Exception e) {}
     }
 
     public void center(Locator loc) {
@@ -842,19 +921,43 @@ public class MiniMap extends Widget
 			continue;
 		    Coord sc = tc.add(info.sc.sub(obg.gc).mul(cmaps));
 		    SMarker prev = file.smarker(micon.res.name, info.seg, sc);
+		    
+		    // Also check for any existing cave marker at the EXACT same coordinates (to prevent duplicates)
+		    // Use small radius (2 tiles) to catch markers at nearly the same position
+		    if(prev == null && micon.res.name.equals("gfx/hud/mmap/cave")) {
+		        prev = findNearbyCaveMarker(file, info.seg, sc, 2);  // 2 tiles radius
+		        if(prev != null) {
+		            System.out.println("[markobjs] Found existing cave marker at " + prev.tc + " (dist=" + prev.tc.dist(sc) + "): " + prev.nm);
+		        }
+		    }
+		    
 		    if(prev == null) {
 			if(icon.conf.getmarkp()) {
 			    Resource.Tooltip tt = micon.res.flayer(Resource.tooltip);
-			    mid = new SMarker(info.seg, sc, tt.text(), 0, new Resource.Saved(Resource.remote(), micon.res.name, micon.res.ver));
+			    String markerName = tt != null ? tt.text() : micon.res.name;
+
+			    // Special handling for cave passages - use "Cave" as base name
+			    if(micon.res.name.equals("gfx/hud/mmap/cave")) {
+			        markerName = "Cave";
+			    }
+
+			    mid = new SMarker(info.seg, sc, markerName, 0, new Resource.Saved(Resource.remote(), micon.res.name, micon.res.ver));
 			    file.add(mid);
 			    isNew = true;
 			    if(isCavePassage) {
-				msg = "[markobjs] Created marker for " + micon.res.name + ": " + tt.text();
+				msg = "[markobjs] Created marker for " + micon.res.name + ": " + markerName;
 				System.out.println(msg);
 				if(finalLog != null) {
 				    finalLog.println(msg);
 				    finalLog.flush();
 				}
+			    }
+
+			    // Notify cave connection manager
+			    if(isCavePassage) {
+			        try {
+			            nurgling.tools.CaveConnectionManager.getInstance().onCaveMarkerCreated(mid);
+			        } catch(Exception e) {}
 			    }
 			} else {
 			    mid = null;
@@ -862,7 +965,7 @@ public class MiniMap extends Widget
 		    } else {
 			mid = prev;
 			if(isCavePassage) {
-			    msg = "[markobjs] Marker already exists for " + micon.res.name;
+			    msg = "[markobjs] Marker already exists for " + micon.res.name + ": " + prev.nm;
 			    System.out.println(msg);
 			    if(finalLog != null) {
 				finalLog.println(msg);
@@ -889,6 +992,26 @@ public class MiniMap extends Widget
 	    }
 	}
 	if(finalLog != null) finalLog.close();
+    }
+    
+    /**
+     * Find any cave marker near the specified coordinates (within maxDist tiles)
+     */
+    private SMarker findNearbyCaveMarker(MapFile file, long seg, Coord tc, int maxDist) {
+	if(maxDist < 0) return null;  // Invalid distance
+	
+	synchronized(file.lock) {
+	    for(MapFile.Marker m : file.markers) {
+		if(!(m instanceof SMarker)) continue;
+		SMarker sm = (SMarker)m;
+		if(sm.seg == seg && sm.res.name.equals("gfx/hud/mmap/cave")) {
+		    if(sm.tc.dist(tc) <= maxDist) {
+			return sm;
+		    }
+		}
+	    }
+	}
+	return null;
     }
 
     public boolean filter(DisplayIcon icon) {
