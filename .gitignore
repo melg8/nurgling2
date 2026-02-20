@@ -21,6 +21,10 @@ Hurricane
 *.war
 *.ear
 *.log
+META-INF/
+run_output.txt
+.classpath
+.project
 
 # IDE
 .vscode/
