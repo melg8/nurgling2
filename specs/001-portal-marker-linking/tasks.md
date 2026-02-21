@@ -39,9 +39,9 @@
 
 **Purpose**: Project initialization and basic structure for portal linking feature
 
-- [ ] T001 Create package structure: `src/nurgling/teleportation/`, `src/nurgling/markers/`, `src/nurgling/utils/`, `src/nurgling/overlays/map/`
-- [ ] T002 [P] Create test package structure: `tests/unit/nurgling/teleportation/`, `tests/unit/nurgling/markers/`, `tests/unit/nurgling/utils/`, `tests/integration/nurgling/`
-- [ ] T003 [P] Verify JUnit 5 and Mockito dependencies in build configuration
+- [X] T001 Create package structure: `src/nurgling/teleportation/`, `src/nurgling/markers/`, `src/nurgling/utils/`, `src/nurgling/overlays/map/`
+- [X] T002 [P] Create test package structure: `tests/unit/nurgling/teleportation/`, `tests/unit/nurgling/markers/`, `tests/unit/nurgling/utils/`, `tests/integration/nurgling/`
+- [X] T003 [P] Verify JUnit 5 and Mockito dependencies in build configuration
 
 ---
 
@@ -51,13 +51,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Create `TeleportationType` enum in `src/nurgling/teleportation/TeleportationType.java` with values: PORTAL_LAYER_TRANSITION, PORTAL_SAME_LAYER, HEARTHFIRE, VILLAGE_TOTEM, SIGNPOST, UNKNOWN
-- [ ] T005 [P] Create `TeleportationEvent` class in `src/nurgling/teleportation/TeleportationEvent.java` with fields: type, sourceGridId, sourceCoord, targetGridId, targetCoord, timestamp, portalGobName
-- [ ] T006 [P] Create `TeleportationDetector` interface in `src/nurgling/teleportation/TeleportationDetector.java` with methods: onTeleportation(), getLastEvent(), clearEvent()
-- [ ] T007 [P] Create `LayerTransitionDetector` interface in `src/nurgling/teleportation/LayerTransitionDetector.java` with methods: isLayerTransition(), getTransitionDirection(), getPortalType()
-- [ ] T008 [P] Create `CoordinateTransformer` interface in `src/nurgling/utils/CoordinateTransformer.java` with methods: transformCoordinate(), calculateOffset(), applyOffset()
-- [ ] T009 [P] Create `PortalType` enum in `src/nurgling/markers/PortalType.java` with values: CAVE, MINEHOLE, LADDER (extend existing ChunkPortal.PortalType if needed)
-- [ ] T010 [P] Create `Direction` enum in `src/nurgling/markers/Direction.java` with values: IN, OUT
+- [X] T004 [P] Create `TeleportationType` enum in `src/nurgling/teleportation/TeleportationType.java` with values: PORTAL_LAYER_TRANSITION, PORTAL_SAME_LAYER, HEARTHFIRE, VILLAGE_TOTEM, SIGNPOST, UNKNOWN
+- [X] T005 [P] Create `TeleportationEvent` class in `src/nurgling/teleportation/TeleportationEvent.java` with fields: type, sourceGridId, sourceCoord, targetGridId, targetCoord, timestamp, portalGobName
+- [X] T006 [P] Create `TeleportationDetector` interface in `src/nurgling/teleportation/TeleportationDetector.java` with methods: onTeleportation(), getLastEvent(), clearEvent()
+- [X] T007 [P] Create `LayerTransitionDetector` interface in `src/nurgling/teleportation/LayerTransitionDetector.java` with methods: isLayerTransition(), getTransitionDirection(), getPortalType()
+- [X] T008 [P] Create `CoordinateTransformer` interface in `src/nurgling/utils/CoordinateTransformer.java` with methods: transformCoordinate(), calculateOffset(), applyOffset()
+- [X] T009 [P] Create `PortalType` enum in `src/nurgling/markers/PortalType.java` with values: CAVE, MINEHOLE, LADDER (extend existing ChunkPortal.PortalType if needed)
+- [X] T010 [P] Create `Direction` enum in `src/nurgling/markers/Direction.java` with values: IN, OUT
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -73,27 +73,27 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T011 [P] [US1] Unit test for `CoordinateTransformer.calculateOffset()` in `tests/unit/nurgling/utils/CoordinateTransformerTest.java`
-- [ ] T012 [P] [US1] Unit test for `CoordinateTransformer.transformCoordinate()` in `tests/unit/nurgling/utils/CoordinateTransformerTest.java`
-- [ ] T013 [P] [US1] Unit test for `CoordinateTransformer.applyOffset()` in `tests/unit/nurgling/utils/CoordinateTransformerTest.java`
-- [ ] T014 [P] [US1] Unit test for UID generation (6-char alphanumeric) in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
-- [ ] T015 [US1] Integration test for layer transition detection (cave surface→underground) in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
+- [X] T011 [P] [US1] Unit test for `CoordinateTransformer.calculateOffset()` in `tests/unit/nurgling/utils/CoordinateTransformerTest.java`
+- [X] T012 [P] [US1] Unit test for `CoordinateTransformer.transformCoordinate()` in `tests/unit/nurgling/utils/CoordinateTransformerTest.java`
+- [X] T013 [P] [US1] Unit test for `CoordinateTransformer.applyOffset()` in `tests/unit/nurgling/utils/CoordinateTransformerTest.java`
+- [X] T014 [P] [US1] Unit test for UID generation (6-char alphanumeric) in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
+- [X] T015 [US1] Integration test for layer transition detection (cave surface→underground) in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Implement `CoordinateTransformer` class in `src/nurgling/utils/CoordinateTransformer.java` with transformation formula: offset = markerCoord - portalCoord, target = targetPortal + offset
-- [ ] T017 [P] [US1] Create `PortalMarker` class in `src/nurgling/markers/PortalMarker.java` with fields: name, type, gridId, coord, linkUid, direction, layer, createdTimestamp, icon
-- [ ] T018 [P] [US1] Create `PortalLink` class in `src/nurgling/markers/PortalLink.java` with fields: linkUid, sourceMarker, targetMarker, sourceLayer, targetLayer, createdTimestamp, lastAccessedTimestamp
-- [ ] T019 [P] [US1] Create `PortalLinkSaveData` class in `src/nurgling/markers/PortalLinkSaveData.java` for JSON serialization with fields matching data-model.md schema
-- [ ] T020 [US1] Implement `TeleportationDetector` class in `src/nurgling/teleportation/TeleportationDetector.java` to detect discontinuous position changes (>10 tiles) and classify teleportation type
-- [ ] T021 [US1] Implement `LayerTransitionDetector` class in `src/nurgling/teleportation/LayerTransitionDetector.java` with decision logic: isLayerTransition() checks PORTAL_LAYER_TRANSITION type, different gridId, and portal type (CAVE/MINEHOLE/LADDER)
-- [ ] T022 [US1] Implement `PortalLinkManager` class in `src/nurgling/markers/PortalLinkManager.java` with methods: createLink(), getLinkedMarkers(), getLinkByUid(), processTeleportation()
-- [ ] T023 [US1] Implement UID generation method in `PortalLinkManager` (6-character alphanumeric 0-9a-zA-Z with collision check)
-- [ ] T024 [US1] Implement `createLink()` method in `PortalLinkManager` with validation: markers on adjacent layers, assign linkUid, set direction (OUT for source, IN for target)
-- [ ] T025 [US1] Implement `processTeleportation()` method in `PortalLinkManager` to handle layer transition events and create linked markers
-- [ ] T026 [US1] Implement coordinate transformation for markers in `PortalLinkManager.processTeleportation()` using `CoordinateTransformer`
-- [ ] T027 [US1] Add SLF4J logging to all User Story 1 operations (teleportation detection, link creation, coordinate transformation)
-- [ ] T028 [US1] Implement marker creation on target layer when marker doesn't exist at transformed coordinate
+- [X] T016 [P] [US1] Implement `CoordinateTransformer` class in `src/nurgling/utils/CoordinateTransformer.java` with transformation formula: offset = markerCoord - portalCoord, target = targetPortal + offset
+- [X] T017 [P] [US1] Create `PortalMarker` class in `src/nurgling/markers/PortalMarker.java` with fields: name, type, gridId, coord, linkUid, direction, layer, createdTimestamp, icon
+- [X] T018 [P] [US1] Create `PortalLink` class in `src/nurgling/markers/PortalLink.java` with fields: linkUid, sourceMarker, targetMarker, sourceLayer, targetLayer, createdTimestamp, lastAccessedTimestamp
+- [X] T019 [P] [US1] Create `PortalLinkSaveData` class in `src/nurgling/markers/PortalLinkSaveData.java` for JSON serialization with fields matching data-model.md schema
+- [X] T020 [US1] Implement `TeleportationDetector` class in `src/nurgling/teleportation/TeleportationDetector.java` to detect discontinuous position changes (>10 tiles) and classify teleportation type
+- [X] T021 [US1] Implement `LayerTransitionDetector` class in `src/nurgling/teleportation/LayerTransitionDetector.java` with decision logic: isLayerTransition() checks PORTAL_LAYER_TRANSITION type, different gridId, and portal type (CAVE/MINEHOLE/LADDER)
+- [X] T022 [US1] Implement `PortalLinkManager` class in `src/nurgling/markers/PortalLinkManager.java` with methods: createLink(), getLinkedMarkers(), getLinkByUid(), processTeleportation()
+- [X] T023 [US1] Implement UID generation method in `PortalLinkManager` (6-character alphanumeric 0-9a-zA-Z with collision check)
+- [X] T024 [US1] Implement `createLink()` method in `PortalLinkManager` with validation: markers on adjacent layers, assign linkUid, set direction (OUT for source, IN for target)
+- [X] T025 [US1] Implement `processTeleportation()` method in `PortalLinkManager` to handle layer transition events and create linked markers
+- [X] T026 [US1] Implement coordinate transformation for markers in `PortalLinkManager.processTeleportation()` using `CoordinateTransformer`
+- [X] T027 [US1] Add SLF4J logging to all User Story 1 operations (teleportation detection, link creation, coordinate transformation)
+- [X] T028 [US1] Implement marker creation on target layer when marker doesn't exist at transformed coordinate
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently - player can transition through cave and see linked markers created
 

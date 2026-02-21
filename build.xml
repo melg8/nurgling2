@@ -116,6 +116,14 @@
     <pathelement path="etc/postgresql-42.7.5.jar" />
     <pathelement path="etc/sqlite-jdbc-3.49.1.0.jar" />
 	<pathelement path="lib/jglob.jar" />
+	<!-- Test dependencies -->
+	<pathelement path="etc/junit-jupiter-api-5.11.4.jar" />
+	<pathelement path="etc/junit-jupiter-engine-5.11.4.jar" />
+	<pathelement path="etc/junit-platform-commons-1.11.4.jar" />
+	<pathelement path="etc/junit-platform-launcher-1.11.4.jar" />
+	<pathelement path="etc/mockito-core-5.15.2.jar" />
+	<pathelement path="etc/byte-buddy-1.15.11.jar" />
+	<pathelement path="etc/objenesis-3.4.jar" />
       </classpath>
       <compilerarg if:set="explicit-annotations" value="-proc:full" />
       <compilerarg value="-Xlint:unchecked" />
@@ -298,5 +306,56 @@
 
   <target name="release" depends="version">
     <copy todir="release/" file="ver" />
+  </target>
+
+  <!-- Test target using JUnit Platform Launcher -->
+  <target name="test" depends="hafen-client" description="Run unit tests with JUnit 5">
+    <mkdir dir="build/test-classes" />
+    <!-- Compile test classes -->
+    <javac srcdir="tests" destdir="build/test-classes" debug="on"
+           source="21" target="21" includeantruntime="no"
+           encoding="UTF-8" fork="true" executable="C:/Program Files/Eclipse Adoptium/jdk-25.0.2.10-hotspot/bin/javac"
+           bootclasspath="${boot-classpath}">
+      <classpath>
+        <pathelement path="build/classes" />
+        <pathelement path="lib/ext/jogl/jogl-all.jar" />
+        <pathelement path="lib/ext/jogl/gluegen-rt.jar" />
+        <pathelement path="lib/ext/lwjgl/lwjgl-fat.jar" />
+        <pathelement path="lib/ext/lwjgl/lwjgl-awt.jar" />
+        <pathelement path="lib/ext/lwjgl/lwjgl-opengl-fat.jar" />
+        <pathelement path="lib/ext/steamworks/steamworks4j.jar" />
+        <pathelement path="etc/json-java.jar" />
+        <pathelement path="etc/postgresql-42.7.5.jar" />
+        <pathelement path="etc/sqlite-jdbc-3.49.1.0.jar" />
+        <pathelement path="lib/jglob.jar" />
+        <pathelement path="etc/junit-jupiter-api-5.11.4.jar" />
+        <pathelement path="etc/junit-jupiter-engine-5.11.4.jar" />
+        <pathelement path="etc/junit-platform-commons-1.11.4.jar" />
+        <pathelement path="etc/junit-platform-launcher-1.11.4.jar" />
+        <pathelement path="etc/mockito-core-5.15.2.jar" />
+        <pathelement path="etc/byte-buddy-1.15.11.jar" />
+        <pathelement path="etc/objenesis-3.4.jar" />
+      </classpath>
+      <compilerarg value="-Xlint:unchecked" />
+      <compilerarg value="-Xlint:deprecation" />
+    </javac>
+    <!-- Copy test resources -->
+    <copy todir="build/test-classes">
+      <fileset dir="tests" excludes="**/*.java" />
+    </copy>
+    <!-- Run tests using JUnit Platform ConsoleLauncher Standalone -->
+    <java classname="org.junit.platform.console.ConsoleLauncher" fork="true" failonerror="true">
+      <classpath>
+        <pathelement path="build/classes" />
+        <pathelement path="build/test-classes" />
+        <pathelement path="etc/junit-platform-console-standalone-1.11.4.jar" />
+        <pathelement path="etc/mockito-core-5.15.2.jar" />
+        <pathelement path="etc/byte-buddy-1.15.11.jar" />
+        <pathelement path="etc/objenesis-3.4.jar" />
+      </classpath>
+      <arg value="--scan-classpath" />
+      <arg value="--include-engine=junit-jupiter" />
+      <arg value="--details=tree" />
+    </java>
   </target>
 </project>

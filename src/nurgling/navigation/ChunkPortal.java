@@ -23,7 +23,8 @@ public class ChunkPortal {
         CELLAR,         // Cellar entrance
         MINE_ENTRANCE,  // Mine entrance (legacy, generic)
         MINEHOLE,       // Minehole - goes DOWN into mine
-        LADDER;         // Ladder - goes UP out of mine level
+        LADDER,         // Ladder - goes UP out of mine level
+        CAVE;           // Cave entrance - goes DOWN into underground
 
         public static PortalType fromString(String s) {
             try {
@@ -71,6 +72,11 @@ public class ChunkPortal {
         // Cellar
         if (name.contains("cellar")) {
             return PortalType.CELLAR;
+        }
+
+        // Cave entrance - goes DOWN into underground
+        if (name.contains("cave")) {
+            return PortalType.CAVE;
         }
 
         // Mine - distinguish between minehole (down) and ladder (up)
