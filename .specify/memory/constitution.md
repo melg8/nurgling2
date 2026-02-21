@@ -1,17 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.2.2 → 2.0.0 (MAJOR: AI-first development model)
+Version change: 2.0.0 → 2.1.0 (MINOR: English language requirement for code artifacts)
 
 Principles Modified:
-  - IV. Verification Through Testing → IV. Automatic Testing First (stricter)
-  - VII. Mandatory Self-Review → VII. AI-Assisted Development & Feedback
-
-Principles Added:
   - None
 
+Principles Added:
+  - VIII. English Language for Code Artifacts
+
 Added Sections:
-  - AI Feedback Mechanisms (in Development Workflow)
+  - None
 
 Removed Sections:
   - None
@@ -20,6 +19,7 @@ Templates Status:
   - plan-template.md: ✅ aligned
   - spec-template.md: ✅ aligned
   - tasks-template.md: ✅ aligned
+  - commands/*.md: ✅ aligned
 
 Follow-up TODOs:
   - TODO(LOG_FORMAT): Define structured logging format specification
@@ -169,6 +169,29 @@ help AI learn from mistakes and prevent repeating them.
 
 ---
 
+### VIII. English Language for Code Artifacts
+
+All code artifacts MUST be written in English to ensure international accessibility
+and maintainability.
+
+**Non-Negotiable Rules:**
+- Source code comments MUST be written in English only
+- Git commit messages MUST be written in English only
+- Git branch names MUST be written in English only (lowercase, hyphen-separated)
+- Documentation (README, docs/, specs/) MUST be written in English only
+- Log messages MUST be written in English only
+- Exception: User-facing text in i18n/l10n files MAY use any language for
+  translation purposes (resource bundles, localization files, translation strings)
+- Exception: Test data MAY include non-English text when testing i18n functionality
+
+**Rationale:** English is the lingua franca of software development. Using English
+for code artifacts ensures that the codebase is accessible to international
+contributors, AI assistants, and future maintainers regardless of their native
+language. This reduces barriers to collaboration and improves long-term
+maintainability.
+
+---
+
 ## Code Quality Standards
 
 **Build Configuration:**
@@ -248,4 +271,4 @@ Compliance is mandatory unless explicitly waived by project maintainers.
 - Quarterly review of constitution effectiveness
 - Violations MUST be documented and remediated
 
-**Version**: 2.0.0 | **Ratified**: 2026-02-21 | **Last Amended**: 2026-02-21
+**Version**: 2.1.0 | **Ratified**: 2026-02-21 | **Last Amended**: 2026-02-21
