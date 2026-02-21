@@ -12,6 +12,21 @@ description: "Task list template for feature implementation"
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
+## AGENT WORKFLOW REQUIREMENT
+
+**CRITICAL**: Each task in this file MUST be executed following the agent-workflow.md cycle:
+
+1. **Delegate to `incremental-developer`** agent with the task description
+2. **Wait** for completion with status `STATUS: ATOMIC_STEP_COMPLETE`
+3. **Delegate to `qa-verifier`** agent for verification
+4. **If RESULT: FAILED** → Return to step 1 with error details
+5. **If RESULT: PASSED** → Mark task as [X] and proceed to next task
+
+**After EACH code change within a task:**
+- Run build command (e.g., `ant bin`)
+- Run test command (e.g., `ant test`)
+- Fix ALL errors before proceeding
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)

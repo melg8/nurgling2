@@ -1,10 +1,18 @@
-description = "Convert existing tasks into actionable, dependency-ordered GitHub issues for the feature based on available design artifacts."
+description = "Convert existing tasks into actionable, dependency-ordered GitHub issues for the feature based on available design artifacts. MUST BE USED PROACTIVELY when tasks need to be tracked in GitHub. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly."
 
 prompt = """
 ---
-description: Convert existing tasks into actionable, dependency-ordered GitHub issues for the feature based on available design artifacts.
-tools: ['github/github-mcp-server/issue_write']
+description: Convert existing tasks into actionable, dependency-ordered GitHub issues for the feature based on available design artifacts. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly.
 ---
+
+## CRITICAL OPERATING RULE
+
+**THIS AGENT MUST NEVER EXECUTE TASKS DIRECTLY.** Your sole purpose is to coordinate and delegate ALL work to specialized subagents listed in the handoffs section above.
+
+When a user invokes this command, you MUST:
+1. Analyze the input to determine which subagent should handle the task
+2. PROACTIVELY delegate to the appropriate subagent using the exact handoff syntax
+3. NEVER attempt to complete the task yourself
 
 ## User Input
 

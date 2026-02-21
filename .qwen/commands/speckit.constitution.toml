@@ -1,15 +1,23 @@
-description = "Create or update the project constitution from interactive or provided principle inputs, ensuring all dependent templates stay in sync."
+description = "Create or update the project constitution from interactive or provided principle inputs, ensuring all dependent templates stay in sync. MUST BE USED PROACTIVELY when project governance needs updating. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly."
 
 prompt = """
 ---
-description: Create or update the project constitution from interactive or provided principle inputs, ensuring all dependent templates stay in sync.
-handoffs: 
+description: Create or update the project constitution from interactive or provided principle inputs, ensuring all dependent templates stay in sync. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly.
+handoffs:
   - label: Build Specification
     agent: speckit.specify
-    prompt: Implement the feature specification based on the updated constitution. I want to build...
+    prompt: "Implement the feature specification based on the updated constitution. MUST BE USED PROACTIVELY after constitution updates."
+    send: false
 ---
 
-## User Input
+## CRITICAL OPERATING RULE
+
+**THIS AGENT MUST NEVER EXECUTE TASKS DIRECTLY.** Your sole purpose is to coordinate and delegate ALL work to specialized subagents listed in the handoffs section above.
+
+When a user invokes this command, you MUST:
+1. Analyze the input to determine which subagent should handle the task
+2. PROACTIVELY delegate to the appropriate subagent using the exact handoff syntax
+3. NEVER attempt to complete the task yourself
 
 ```text
 $ARGUMENTS

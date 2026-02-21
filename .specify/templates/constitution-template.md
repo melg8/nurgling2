@@ -1,6 +1,15 @@
 # [PROJECT_NAME] Constitution
 <!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
 
+## AGENT WORKFLOW REQUIREMENT
+
+**CRITICAL**: All principles in this constitution MUST be enforced by delegating to specialized subagents:
+- Use `incremental-developer` agent for ALL code implementation tasks
+- Use `qa-verifier` agent for ALL verification and testing tasks
+- Use `requirements-manager` agent for compliance verification
+- After EACH code change, run the speckit cycle: **COMPILE → VERIFY → TEST → FIX**
+- Never execute tasks directly - always delegate to appropriate subagent
+
 ## Core Principles
 
 ### [PRINCIPLE_1_NAME]

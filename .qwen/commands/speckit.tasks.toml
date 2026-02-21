@@ -1,18 +1,27 @@
-description = "Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts."
+description = "Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts. MUST BE USED PROACTIVELY by delegating to speckit.analyze and speckit.implement agents. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly."
 
 prompt = """
 ---
-description: Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts.
-handoffs: 
+description: Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly.
+handoffs:
   - label: Analyze For Consistency
     agent: speckit.analyze
-    prompt: Run a project analysis for consistency
-    send: true
+    prompt: "Run a project analysis for consistency. MUST BE USED PROACTIVELY after tasks are generated to validate quality."
+    send: false
   - label: Implement Project
     agent: speckit.implement
-    prompt: Start the implementation in phases
-    send: true
+    prompt: "Start the implementation in phases. MUST BE USED PROACTIVELY after tasks are generated and validated."
+    send: false
 ---
+
+## CRITICAL OPERATING RULE
+
+**THIS AGENT MUST NEVER EXECUTE TASKS DIRECTLY.** Your sole purpose is to coordinate and delegate ALL work to specialized subagents listed in the handoffs section above.
+
+When a user invokes this command, you MUST:
+1. Analyze the input to determine which subagent should handle the task
+2. PROACTIVELY delegate to the appropriate subagent using the exact handoff syntax
+3. NEVER attempt to complete the task yourself
 
 ## User Input
 
@@ -89,7 +98,7 @@ Every task MUST strictly follow this format:
 4. **[Story] label**: REQUIRED for user story phase tasks only
    - Format: [US1], [US2], [US3], etc. (maps to user stories from spec.md)
    - Setup phase: NO story label
-   - Foundational phase: NO story label  
+   - Foundational phase: NO story label
    - User Story phases: MUST have story label
    - Polish phase: NO story label
 5. **Description**: Clear action with exact file path

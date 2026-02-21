@@ -1,9 +1,17 @@
 # Feature Specification: [FEATURE NAME]
 
-**Feature Branch**: `[###-feature-name]`  
-**Created**: [DATE]  
-**Status**: Draft  
+**Feature Branch**: `[###-feature-name]`
+**Created**: [DATE]
+**Status**: Draft
 **Input**: User description: "$ARGUMENTS"
+
+## AGENT WORKFLOW REQUIREMENT
+
+**CRITICAL**: This specification MUST be implemented by delegating ALL work to specialized subagents:
+- Use `incremental-developer` agent for ALL code implementation tasks
+- Use `qa-verifier` agent for ALL verification and testing tasks
+- Use `requirements-manager` agent for completion verification
+- After EACH code change, run the speckit cycle: **COMPILE → VERIFY → TEST → FIX**
 
 ## User Scenarios & Testing *(mandatory)*
 

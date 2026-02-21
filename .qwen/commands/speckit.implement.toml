@@ -1,9 +1,82 @@
-description = "Execute the implementation plan by processing and executing all tasks defined in tasks.md"
+description = "Execute the implementation plan by processing and executing all tasks defined in tasks.md. MUST BE USED PROACTIVELY by delegating ALL coding tasks to incremental-developer agent and verification to qa-verifier agent. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly. Implements agent-workflow.md cycle: Producer → Compilation → Testing after EACH code change."
 
 prompt = """
 ---
-description: Execute the implementation plan by processing and executing all tasks defined in tasks.md
+description: Execute the implementation plan by processing and executing all tasks defined in tasks.md. DELEGATE ALL WORK to subagents - this agent NEVER executes tasks directly. Implements agent-workflow.md cycle: Producer → Compilation → Testing after EACH code change.
 ---
+
+## CRITICAL OPERATING RULE
+
+**THIS AGENT MUST NEVER EXECUTE TASKS DIRECTLY.** Your sole purpose is to coordinate and delegate ALL work to specialized subagents from the `agents/` folder.
+
+**MANDATORY AGENT WORKFLOW (from agent-workflow.md):**
+
+After EACH small code change (adding dependency, adding new code, modifying tests), you MUST follow this cycle:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        РОДИТЕЛЬСКИЙ АГЕНТ                        │
+│  (координирует процесс, проверяет выполнение задачи)            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌─────────────────┐    ┌───────────────┐
+│   PRODUCER    │───▶│   COMPILATION   │───▶│    TESTING    │
+│ (incremental- │    │  (incremental-  │    │  (qa-verifier)│
+│  developer)   │    │   developer)    │    │               │
+└───────────────┘    └─────────────────┘    └───────────────┘
+        ▲                     │                     │
+        │                     ▼                     │
+        │              [ОШИБКА?]                    │
+        │                     │                     │
+        └─────────────────────┴─────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Возврат ошибки │
+                    │  на доработку   │
+                    └─────────────────┘
+```
+
+**FOR EACH TASK IN tasks.md:**
+
+1. **Launch incremental-developer** with prompt:
+   ```
+   Ты Producer Agent. Твоя задача:
+   1. Изучи задачу: {TASK_DESCRIPTION}
+   2. {Если есть ошибки: "Исправь следующие ошибки компиляции: {ERRORS}"}
+   3. {Если есть ошибки тестов: "Исправь проваленные тесты: {TEST_ERRORS}"}
+   4. Внеси необходимые изменения в код
+   5. Предоставь список изменённых файлов и описание изменений
+   
+   ПОСЛЕ написания кода ТЫ ОБЯЗАН:
+   - Запустить сборку: ant bin
+   - Если сборка не успешна - исправить ошибки
+   - Запустить тесты: ant test
+   - Если тесты не успешны - исправить ошибки
+   - Только после успешной сборки и тестов вернуть результат
+   ```
+
+2. **Wait for incremental-developer to complete** with status: `STATUS: ATOMIC_STEP_COMPLETE`
+
+3. **Launch qa-verifier** with prompt:
+   ```
+   Ты QA Verifier. Твоя задача:
+   1. Запусти сборку проекта: ant bin
+   2. Если сборка успешна — верни: "✅ Сборка успешна"
+   3. Если есть ошибки — верни полный текст ошибок
+   4. Запусти тесты: ant test
+   5. Если все тесты пройдены — верни: "✅ Все тесты пройдены"
+   6. Если есть провалы — верни названия тестов и текст ошибок
+   ```
+
+4. **Handle results:**
+   - ✅ Если сборка и тесты успешны → перейти к следующей задаче
+   - ❌ Если ошибки компиляции → вернуть ошибки incremental-developer для исправления
+   - ❌ Если провалены тесты → вернуть ошибки тестов incremental-developer для исправления
+
+5. **Repeat cycle** until task is complete
 
 ## User Input
 
@@ -106,29 +179,60 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Task details**: ID, description, file paths, parallel markers [P]
    - **Execution flow**: Order and dependency requirements
 
-6. Execute implementation following the task plan:
-   - **Phase-by-phase execution**: Complete each phase before moving to the next
-   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
-   - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
-   - **File-based coordination**: Tasks affecting the same files must run sequentially
-   - **Validation checkpoints**: Verify each phase completion before proceeding
+6. **EXECUTE IMPLEMENTATION FOLLOWING AGENT WORKFLOW:**
 
-7. Implementation execution rules:
-   - **Setup first**: Initialize project structure, dependencies, configuration
-   - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
-   - **Core development**: Implement models, services, CLI commands, endpoints
-   - **Integration work**: Database connections, middleware, logging, external services
-   - **Polish and validation**: Unit tests, performance optimization, documentation
+   For EACH task in tasks.md (in order):
+   
+   a. **DELEGATE to incremental-developer:**
+      ```
+      Ты incremental-developer agent. Твоя задача:
+      
+      1. Изучи задачу из tasks.md: {TASK_DESCRIPTION}
+      2. Прочитай相关文件: {FILE_PATHS}
+      3. Внеси необходимые изменения в код
+      4. ПОСЛЕ написания кода ТЫ ОБЯЗАН ЗАПУСТИТЬ:
+         - ant bin (сборка)
+         - Если сборка не успешна - исправить ВСЕ ошибки
+         - ant test (тесты)
+         - Если тесты не успешны - исправить ВСЕ ошибки
+      5. Предоставь список изменённых файлов и описание изменений
+      6. Заверши со статусом: STATUS: ATOMIC_STEP_COMPLETE
+      
+      ВАЖНО: Не оставляй TODO, FIXME, заглушек или mock реализаций.
+      ```
+   
+   b. **WAIT for incremental-developer to complete**
+   
+   c. **DELEGATE to qa-verifier:**
+      ```
+      Ты qa-verifier agent. Твоя задача:
+      
+      1. Запусти сборку: ant bin
+      2. Проверь результат сборки
+      3. Запусти тесты: ant test
+      4. Проверь результат тестов
+      5. Верни один из статусов:
+         - RESULT: PASSED (если сборка и тесты успешны)
+         - RESULT: FAILED (если есть ошибки) с полным списком ошибок
+      
+      ВАЖНО: Будь строгим - любой провал тестов или ошибка сборки = FAILED
+      ```
+   
+   d. **HANDLE RESULTS:**
+      - ✅ **RESULT: PASSED** → Mark task as [X] in tasks.md, proceed to next task
+      - ❌ **RESULT: FAILED** → Return errors to incremental-developer for fix, repeat cycle
+   
+   e. **REPEAT CYCLE** until task passes
 
-8. Progress tracking and error handling:
+7. Progress tracking and error handling:
    - Report progress after each completed task
-   - Halt execution if any non-parallel task fails
+   - Halt execution if any non-parallel task fails after 3 retry cycles
    - For parallel tasks [P], continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
+   - **IMPORTANT** For completed tasks, make sure to mark the task as [X] in the tasks file.
 
-9. Completion validation:
+8. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
    - Validate that tests pass and coverage meets requirements
@@ -136,4 +240,18 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Report final status with summary of completed work
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
+
+## Commands for Nurgling2 Project
+
+```bash
+# Build commands
+ant bin
+ant clean && ant bin
+
+# Test commands
+ant test
+
+# Run application
+play.bat
+```
 """

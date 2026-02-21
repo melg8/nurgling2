@@ -5,6 +5,14 @@
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
+## AGENT WORKFLOW REQUIREMENT
+
+**CRITICAL**: This plan MUST be executed by delegating to specialized subagents:
+- Use `incremental-developer` agent for ALL code implementation tasks
+- Use `qa-verifier` agent for ALL verification and testing tasks
+- After EACH code change, run the speckit cycle: **COMPILE → VERIFY → TEST → FIX**
+- Never execute tasks directly - always delegate to appropriate subagent
+
 ## Summary
 
 [Extract from feature spec: primary requirement + technical approach from research]
