@@ -107,16 +107,16 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T029 [P] [US2] Unit test for marker list sorting (linked markers grouped together) in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
-- [ ] T030 [US2] Integration test for marker click → map center action in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
+- [X] T029 [P] [US2] Unit test for marker list sorting (linked markers grouped together) in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
+- [X] T030 [US2] Integration test for marker click → map center action in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
 
 ### Implementation for User Story 2
 
-- [ ] T031 [P] [US2] Extend `MapWnd.getSortedMarkers()` in `src/haven/MapWnd.java` with comparator: primary by name, secondary by linkUid, tertiary by direction
-- [ ] T032 [US2] Implement marker click handler in `MapWnd` to center map on clicked `PortalMarker` location
-- [ ] T033 [US2] Add visual indicator for linked markers (IN/OUT icon overlay) in `src/nurgling/overlays/map/MinimapPortalLinkRenderer.java`
-- [ ] T034 [US2] Implement `getLinkedMarkers()` method in `PortalLinkManager` with O(1) HashMap lookup
-- [ ] T035 [US2] Add SLF4J logging for User Story 2 operations (marker sorting, map centering)
+- [X] T031 [P] [US2] Extend `MapWnd.getSortedMarkers()` in `src/haven/MapWnd.java` with comparator: primary by name, secondary by linkUid, tertiary by direction
+- [X] T032 [US2] Implement marker click handler in `MapWnd` to center map on clicked `PortalMarker` location
+- [X] T033 [US2] Add visual indicator for linked markers (IN/OUT icon overlay) in `src/nurgling/overlays/map/MinimapPortalLinkRenderer.java`
+- [X] T034 [US2] Implement `getLinkedMarkers()` method in `PortalLinkManager` with O(1) HashMap lookup
+- [X] T035 [US2] Add SLF4J logging for User Story 2 operations (marker sorting, map centering)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently - player can create linked markers and switch between them via UI
 
@@ -130,18 +130,18 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T036 [P] [US3] Unit test for multiple link creation with unique UIDs in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
-- [ ] T037 [P] [US3] Unit test for marker recreation after deletion in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
-- [ ] T038 [US3] Integration test for dungeon level handling (level 2+) in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
+- [X] T036 [P] [US3] Unit test for multiple link creation with unique UIDs in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
+- [X] T037 [P] [US3] Unit test for marker recreation after deletion in `tests/unit/nurgling/markers/PortalLinkManagerTest.java`
+- [X] T038 [US3] Integration test for dungeon level handling (level 2+) in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
 
 ### Implementation for User Story 3
 
-- [ ] T039 [P] [US3] Implement `saveLinks()` method in `PortalLinkManager` to persist links to JSON array in save file with key "portalLinks"
-- [ ] T040 [P] [US3] Implement `loadLinks()` method in `PortalLinkManager` to load links from save file with backward compatibility (initialize empty array if key absent)
-- [ ] T041 [US3] Implement `recreateMarker()` method in `PortalLinkManager` to recreate deleted markers with preserved UID on portal revisit
-- [ ] T042 [US3] Extend `LayerTransitionDetector` to handle dungeon levels 2+ (minehole/ladder between underground levels)
-- [ ] T043 [US3] Implement validation in `PortalLink` that sourceLayer and targetLayer differ by exactly 1 (adjacent levels only)
-- [ ] T044 [US3] Add SLF4J logging for User Story 3 operations (save, load, marker recreation, multi-level handling)
+- [X] T039 [P] [US3] Implement `saveLinks()` method in `PortalLinkManager` to persist links to JSON array in save file with key "portalLinks"
+- [X] T040 [P] [US3] Implement `loadLinks()` method in `PortalLinkManager` to load links from save file with backward compatibility (initialize empty array if key absent)
+- [X] T041 [US3] Implement `recreateMarker()` method in `PortalLinkManager` to recreate deleted markers with preserved UID on portal revisit
+- [X] T042 [US3] Extend `LayerTransitionDetector` to handle dungeon levels 2+ (minehole/ladder between underground levels)
+- [X] T043 [US3] Implement validation in `PortalLink` that sourceLayer and targetLayer differ by exactly 1 (adjacent levels only)
+- [X] T044 [US3] Add SLF4J logging for User Story 3 operations (save, load, marker recreation, multi-level handling)
 
 **Checkpoint**: All user stories should now be independently functional - player can explore multiple portals with automatic linking and persistence
 
@@ -155,18 +155,18 @@
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T045 [P] [US4] Unit test for hearthfire teleportation non-detection in `tests/unit/nurgling/teleportation/LayerTransitionDetectorTest.java`
-- [ ] T046 [P] [US4] Unit test for village totem teleportation non-detection in `tests/unit/nurgling/teleportation/LayerTransitionDetectorTest.java`
-- [ ] T047 [P] [US4] Unit test for signpost fast travel non-detection in `tests/unit/nurgling/teleportation/LayerTransitionDetectorTest.java`
-- [ ] T048 [US4] Integration test for portal layer transition detection (cave surface→underground) in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
+- [X] T045 [P] [US4] Unit test for hearthfire teleportation non-detection in `tests/unit/nurgling/teleportation/LayerTransitionDetectorTest.java`
+- [X] T046 [P] [US4] Unit test for village totem teleportation non-detection in `tests/unit/nurgling/teleportation/LayerTransitionDetectorTest.java`
+- [X] T047 [P] [US4] Unit test for signpost fast travel non-detection in `tests/unit/nurgling/teleportation/LayerTransitionDetectorTest.java`
+- [X] T048 [US4] Integration test for portal layer transition detection (cave surface→underground) in `tests/integration/nurgling/PortalLinkingIntegrationTest.java`
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] Extend `TeleportationDetector` to classify hearthfire teleportation (check for hearthfire UI interaction)
-- [ ] T050 [US4] Extend `TeleportationDetector` to classify village totem teleportation (check for totem UI interaction)
-- [ ] T051 [US4] Extend `TeleportationDetector` to classify signpost fast travel (check for signpost UI interaction)
-- [ ] T052 [US4] Extend `LayerTransitionDetector.isLayerTransition()` to return false for HEARTHFIRE, VILLAGE_TOTEM, SIGNPOST types
-- [ ] T053 [US4] Add SLF4J logging for User Story 4 operations (teleportation classification, false positive prevention)
+- [X] T049 [US4] Extend `TeleportationDetector` to classify hearthfire teleportation (check for hearthfire UI interaction)
+- [X] T050 [US4] Extend `TeleportationDetector` to classify village totem teleportation (check for totem UI interaction)
+- [X] T051 [US4] Extend `TeleportationDetector` to classify signpost fast travel (check for signpost UI interaction)
+- [X] T052 [US4] Extend `LayerTransitionDetector.isLayerTransition()` to return false for HEARTHFIRE, VILLAGE_TOTEM, SIGNPOST types
+- [X] T053 [US4] Add SLF4J logging for User Story 4 operations (teleportation classification, false positive prevention)
 
 **Checkpoint**: All user stories complete - system correctly distinguishes layer transitions from other teleportation types
 
@@ -176,14 +176,14 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T054 [P] Update `quickstart.md` with build instructions, testing workflow, and debugging guide
-- [ ] T055 [P] Add Javadoc comments to all public classes and methods in `nurgling.teleportation`, `nurgling.markers`, `nurgling.utils` packages
-- [ ] T056 [P] Run code cleanup and refactoring (remove duplicates, improve naming)
-- [ ] T057 [P] Run full test suite: `ant test` and fix any failures
-- [ ] T058 [P] Verify backward compatibility: load existing save files without "portalLinks" key
-- [ ] T059 [P] Performance test: verify marker creation within 2 seconds of layer transition
-- [ ] T060 [P] Verify all logging uses appropriate levels (INFO for normal operations, WARN for recoverable issues, ERROR for unrecoverable)
-- [ ] T061 [P] Run `ant bin` and verify no compile errors or warnings
+- [X] T054 [P] Update `quickstart.md` with build instructions, testing workflow, and debugging guide
+- [X] T055 [P] Add Javadoc comments to all public classes and methods in `nurgling.teleportation`, `nurgling.markers`, `nurgling.utils` packages
+- [X] T056 [P] Run code cleanup and refactoring (remove duplicates, improve naming)
+- [X] T057 [P] Run full test suite: `ant test` and fix any failures
+- [X] T058 [P] Verify backward compatibility: load existing save files without "portalLinks" key
+- [X] T059 [P] Performance test: verify marker creation within 2 seconds of layer transition
+- [X] T060 [P] Verify all logging uses appropriate levels (INFO for normal operations, WARN for recoverable issues, ERROR for unrecoverable)
+- [X] T061 [P] Run `ant bin` and verify no compile errors or warnings
 
 ---
 

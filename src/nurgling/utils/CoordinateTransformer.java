@@ -19,6 +19,8 @@
 package nurgling.utils;
 
 import haven.Coord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of coordinate transformation between different map layers or portals.
@@ -44,6 +46,8 @@ import haven.Coord;
  * </p>
  */
 public class CoordinateTransformer {
+    private static final Logger logger = LoggerFactory.getLogger(CoordinateTransformer.class);
+
     /**
      * Static singleton instance for convenient access.
      */
@@ -75,7 +79,7 @@ public class CoordinateTransformer {
         Coord offset = calculateOffset(sourceMarkerCoord, sourcePortalCoord);
         Coord result = applyOffset(targetPortalCoord, offset);
 
-        dprint("Transform coordinate: sourceMarker=%s, sourcePortal=%s, targetPortal=%s, offset=%s, result=%s",
+        logger.debug("Transform coordinate: sourceMarker={}, sourcePortal={}, targetPortal={}, offset={}, result={}",
                 sourceMarkerCoord, sourcePortalCoord, targetPortalCoord, offset, result);
 
         return result;
@@ -97,7 +101,7 @@ public class CoordinateTransformer {
     public Coord calculateOffset(Coord markerCoord, Coord portalCoord) {
         Coord offset = markerCoord.sub(portalCoord);
 
-        dprint("Calculate offset: markerCoord=%s, portalCoord=%s, offset=%s",
+        logger.debug("Calculate offset: markerCoord={}, portalCoord={}, offset={}",
                 markerCoord, portalCoord, offset);
 
         return offset;
@@ -119,23 +123,9 @@ public class CoordinateTransformer {
     public Coord applyOffset(Coord baseCoord, Coord offset) {
         Coord result = baseCoord.add(offset);
 
-        dprint("Apply offset: baseCoord=%s, offset=%s, result=%s",
+        logger.debug("Apply offset: baseCoord={}, offset={}, result={}",
                 baseCoord, offset, result);
 
         return result;
-    }
-
-    /**
-     * Debug print method for logging transformation operations.
-     * <p>
-     * This method prints debug messages to standard output.
-     * In production, this can be replaced with SLF4J logging (see task T027).
-     * </p>
-     *
-     * @param format the format string
-     * @param args the arguments to be formatted
-     */
-    private void dprint(String format, Object... args) {
-        System.out.printf("[CoordinateTransformer] " + format + "%n", args);
     }
 }
