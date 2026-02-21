@@ -1,6 +1,8 @@
 package nurgling.teleportation;
 
 import haven.Coord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,8 @@ import java.util.Objects;
  * @see TeleportationCallback
  */
 public class TeleportationDetectorImpl implements TeleportationDetector {
+
+    private static final Logger logger = LoggerFactory.getLogger(TeleportationDetectorImpl.class);
 
     /**
      * Threshold distance in tiles for detecting teleportation.
@@ -86,7 +90,7 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
     public void onTeleportation(TeleportationCallback callback) {
         Objects.requireNonNull(callback, "Callback must not be null");
         callbacks.add(callback);
-        dprint("Registered teleportation callback. Total callbacks: %d", callbacks.size());
+        logger.debug("Registered teleportation callback. Total callbacks: {}", callbacks.size());
     }
 
     /**
@@ -113,7 +117,7 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
      */
     @Override
     public void clearEvent() {
-        dprint("Clearing last teleportation event: %s", lastEvent);
+        logger.debug("Clearing last teleportation event: {}", lastEvent);
         lastEvent = null;
     }
 
@@ -142,7 +146,7 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
 
         // Check if this is the first position update
         if (lastKnownCoord == null) {
-            dprint("Initial position set: coord=%s, gridId=%d", coord, gridId);
+            logger.debug("Initial position set: coord={}, gridId={}", coord, gridId);
             lastKnownCoord = coord;
             lastKnownGridId = gridId;
             return;
@@ -156,14 +160,14 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
         if (gridId != lastKnownGridId) {
             isTeleportation = true;
             context = "grid_change";
-            dprint("Grid ID changed: old=%d, new=%d", lastKnownGridId, gridId);
+            logger.info("Grid ID changed: old={}, new={}", lastKnownGridId, gridId);
         } else {
             // Same grid - check distance
             double distance = lastKnownCoord.dist(coord);
             if (distance > TELEPORTATION_THRESHOLD) {
                 isTeleportation = true;
                 context = "distance_" + String.format("%.1f", distance);
-                dprint("Large distance detected: %.2f tiles (threshold: %.1f)", distance, TELEPORTATION_THRESHOLD);
+                logger.info("Large distance detected: {} tiles (threshold: {})", distance, TELEPORTATION_THRESHOLD);
             }
         }
 
@@ -183,7 +187,7 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
                     null // portalGobName is null as we don't have portal info here
             );
 
-            dprint("Teleportation detected: %s", event);
+            logger.info("Teleportation detected: {}", event);
 
             // Store the event
             lastEvent = event;
@@ -193,11 +197,11 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
                 try {
                     callback.onTeleport(event);
                 } catch (Exception e) {
-                    dprint("Error invoking callback: %s", e.getMessage());
+                    logger.warn("Error invoking callback: {}", e.getMessage());
                 }
             }
         } else {
-            dprint("Position update (no teleportation): coord=%s, gridId=%d", coord, gridId);
+            logger.debug("Position update (no teleportation): coord={}, gridId={}", coord, gridId);
         }
 
         // Update last known position
@@ -214,7 +218,17 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
      * <ul>
      *   <li>Grid changes (different map grids)</li>
      *   <li>Distance traveled</li>
+     *   <li>UI interaction type (hearthfire, village totem, signpost)</li>
      *   <li>Portal or other teleportation mechanism identifiers</li>
+     * </ul>
+     * <p>
+     * For User Story 4 (false positive prevention), this method checks for
+     * specific UI interaction contexts:
+     * </p>
+     * <ul>
+     *   <li>"hearthfire_ui" - hearthfire bone teleportation</li>
+     *   <li>"village_totem_ui" - village totem teleportation</li>
+     *   <li>"signpost_ui" - signpost fast travel</li>
      * </ul>
      *
      * @param context the context string providing hints about the teleportation
@@ -222,13 +236,31 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
      */
     public TeleportationType classifyTeleportation(String context) {
         if (context == null || context.isEmpty()) {
-            dprint("Classifying teleportation: no context, returning UNKNOWN");
+            logger.debug("Classifying teleportation: no context, returning UNKNOWN");
             return TeleportationType.UNKNOWN;
+        }
+
+        // T049: Check for hearthfire UI interaction
+        if (context.contains("hearthfire_ui")) {
+            logger.info("Classifying teleportation: hearthfire UI interaction detected -> HEARTHFIRE");
+            return TeleportationType.HEARTHFIRE;
+        }
+
+        // T050: Check for village totem UI interaction
+        if (context.contains("village_totem_ui")) {
+            logger.info("Classifying teleportation: village totem UI interaction detected -> VILLAGE_TOTEM");
+            return TeleportationType.VILLAGE_TOTEM;
+        }
+
+        // T051: Check for signpost UI interaction
+        if (context.contains("signpost_ui")) {
+            logger.info("Classifying teleportation: signpost UI interaction detected -> SIGNPOST");
+            return TeleportationType.SIGNPOST;
         }
 
         // Check for grid change - typically indicates portal between layers
         if (context.contains("grid_change")) {
-            dprint("Classifying teleportation: grid_change -> PORTAL_LAYER_TRANSITION");
+            logger.info("Classifying teleportation: grid_change -> PORTAL_LAYER_TRANSITION");
             return TeleportationType.PORTAL_LAYER_TRANSITION;
         }
 
@@ -238,24 +270,24 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
                 double distance = Double.parseDouble(context.substring("distance_".length()));
                 // Very long distances might indicate hearthfire or village totem
                 if (distance > 1000.0) {
-                    dprint("Classifying teleportation: long distance (%.1f) -> HEARTHFIRE", distance);
+                    logger.info("Classifying teleportation: long distance ({}) -> HEARTHFIRE", distance);
                     return TeleportationType.HEARTHFIRE;
                 } else if (distance > 500.0) {
-                    dprint("Classifying teleportation: medium distance (%.1f) -> VILLAGE_TOTEM", distance);
+                    logger.info("Classifying teleportation: medium distance ({}) -> VILLAGE_TOTEM", distance);
                     return TeleportationType.VILLAGE_TOTEM;
                 } else if (distance > 100.0) {
-                    dprint("Classifying teleportation: short distance (%.1f) -> SIGNPOST", distance);
+                    logger.info("Classifying teleportation: short distance ({}) -> SIGNPOST", distance);
                     return TeleportationType.SIGNPOST;
                 } else {
-                    dprint("Classifying teleportation: very short distance (%.1f) -> PORTAL_SAME_LAYER", distance);
+                    logger.info("Classifying teleportation: very short distance ({}) -> PORTAL_SAME_LAYER", distance);
                     return TeleportationType.PORTAL_SAME_LAYER;
                 }
             } catch (NumberFormatException e) {
-                dprint("Classifying teleportation: invalid distance format, returning UNKNOWN");
+                logger.warn("Classifying teleportation: invalid distance format '{}', returning UNKNOWN", context);
             }
         }
 
-        dprint("Classifying teleportation: unrecognized context '%s', returning UNKNOWN", context);
+        logger.debug("Classifying teleportation: unrecognized context '{}', returning UNKNOWN", context);
         return TeleportationType.UNKNOWN;
     }
 
@@ -293,19 +325,5 @@ public class TeleportationDetectorImpl implements TeleportationDetector {
      */
     public int getCallbackCount() {
         return callbacks.size();
-    }
-
-    /**
-     * Debug print method for logging.
-     * <p>
-     * This method prints debug messages to standard output.
-     * In production, this can be replaced with SLF4J logging.
-     * </p>
-     *
-     * @param format the format string
-     * @param args the arguments to be formatted
-     */
-    private void dprint(String format, Object... args) {
-        System.out.printf("[TeleportationDetector] " + format + "%n", args);
     }
 }

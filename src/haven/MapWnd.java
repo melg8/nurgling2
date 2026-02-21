@@ -40,6 +40,7 @@ import haven.MapFile.SMarker;
 import haven.MiniMap.*;
 import haven.BuddyWnd.GroupSelector;
 import nurgling.widgets.NMiniMap;
+import nurgling.markers.Direction;
 
 import static haven.MCache.tilesz;
 import static haven.MCache.cmaps;
@@ -72,6 +73,162 @@ public class MapWnd extends Window implements Console.Directory {
     private final static Predicate<Marker> smarkers = (m -> m instanceof SMarker);
     private final static Comparator<ListMarker> namecmp = ((a, b) -> a.mark.nm.compareTo(b.mark.nm));
     private final static Comparator<ListMarker> typecmp = Comparator.comparing((ListMarker lm) -> lm.type).thenComparing(namecmp);
+    private final static Comparator<ListMarker> portalcmp = new PortalComparator();
+
+    /**
+     * Comparator for sorting portal markers.
+     * Primary: by name (alphabetically)
+     * Secondary: by linkUid (alphabetically, nulls last)
+     * Tertiary: by direction (IN before OUT, nulls last)
+     */
+    private static class PortalComparator implements Comparator<ListMarker> {
+        // Log levels for structured logging (matches SLF4J levels)
+        private static final int DEBUG = 0;
+        private static final int INFO = 1;
+        private static final int WARN = 2;
+        private static final int ERROR = 3;
+
+        // Current log level threshold
+        private static final int LOG_LEVEL = DEBUG;
+
+        // Comparison counter for statistics
+        private static long comparisonCount = 0;
+
+        /**
+         * Structured logging method with log levels.
+         * <p>
+         * This method prints messages with appropriate log level prefixes.
+         * In production, this can be replaced with SLF4J logging.
+         * </p>
+         *
+         * @param level the log level (DEBUG, INFO, WARN, ERROR)
+         * @param format the format string
+         * @param args the arguments to be formatted
+         */
+        private static void dlog(int level, String format, Object... args) {
+            if (level < LOG_LEVEL) {
+                return;
+            }
+            String levelStr;
+            switch (level) {
+                case DEBUG: levelStr = "DEBUG"; break;
+                case INFO:  levelStr = "INFO";  break;
+                case WARN:  levelStr = "WARN";  break;
+                case ERROR: levelStr = "ERROR"; break;
+                default:    levelStr = "UNKNOWN"; break;
+            }
+            System.out.printf("[PortalComparator] [%s] " + format + "%n", levelStr, args);
+        }
+
+        public int compare(ListMarker a, ListMarker b) {
+            comparisonCount++;
+            dlog(DEBUG, "Comparison #%d: comparing markers '%s' vs '%s'",
+                 comparisonCount,
+                 a.mark != null ? a.mark.nm : "null",
+                 b.mark != null ? b.mark.nm : "null");
+
+            // Primary: sort by name
+            String nameA = a.mark != null ? a.mark.nm : "";
+            String nameB = b.mark != null ? b.mark.nm : "";
+            int nameCmp = nameA.compareTo(nameB);
+            if (nameCmp != 0) {
+                dlog(DEBUG, "  Name comparison: '%s' vs '%s' = %d", nameA, nameB, nameCmp);
+                return nameCmp;
+            }
+            dlog(DEBUG, "  Names are equal: '%s'", nameA);
+
+            // Secondary: sort by linkUid (nulls last)
+            String linkUidA = getLinkUid(a.mark);
+            String linkUidB = getLinkUid(b.mark);
+            dlog(DEBUG, "  Comparing linkUids: '%s' vs '%s'",
+                 linkUidA != null ? linkUidA : "null",
+                 linkUidB != null ? linkUidB : "null");
+            int linkUidCmp = compareNullsLast(linkUidA, linkUidB);
+            if (linkUidCmp != 0) {
+                dlog(DEBUG, "  linkUid comparison result: %d", linkUidCmp);
+                return linkUidCmp;
+            }
+            dlog(DEBUG, "  linkUids are equal (or both null)");
+
+            // Tertiary: sort by direction (IN before OUT, nulls last)
+            Direction dirA = getDirection(a.mark);
+            Direction dirB = getDirection(b.mark);
+            dlog(DEBUG, "  Comparing directions: %s vs %s",
+                 dirA != null ? dirA : "null",
+                 dirB != null ? dirB : "null");
+            int dirCmp = compareDirections(dirA, dirB);
+            dlog(DEBUG, "  Direction comparison result: %d", dirCmp);
+            return dirCmp;
+        }
+
+        /**
+         * Extracts linkUid from a marker.
+         * Returns linkUid if the marker is a PMarker with linkUid field, null otherwise.
+         */
+        private String getLinkUid(Marker mark) {
+            if (mark instanceof PMarker) {
+                PMarker pm = (PMarker) mark;
+                return pm.linkUid;
+            }
+            return null;
+        }
+
+        /**
+         * Extracts direction from a marker.
+         * Returns direction if the marker is a PMarker with direction field, null otherwise.
+         */
+        private Direction getDirection(Marker mark) {
+            if (mark instanceof PMarker) {
+                PMarker pm = (PMarker) mark;
+                return pm.direction;
+            }
+            return null;
+        }
+
+        /**
+         * Compares two strings with nulls sorted last.
+         */
+        private int compareNullsLast(String a, String b) {
+            if (a == null && b == null) {
+                dlog(DEBUG, "    Both strings are null, returning 0");
+                return 0;
+            }
+            if (a == null) {
+                dlog(DEBUG, "    First string is null, returning 1 (nulls last)");
+                return 1;  // nulls last
+            }
+            if (b == null) {
+                dlog(DEBUG, "    Second string is null, returning -1 (nulls last)");
+                return -1; // nulls last
+            }
+            int result = a.compareTo(b);
+            dlog(DEBUG, "    String comparison '%s' vs '%s' = %d", a, b, result);
+            return result;
+        }
+
+        /**
+         * Compares two directions with IN before OUT, nulls last.
+         */
+        private int compareDirections(Direction a, Direction b) {
+            if (a == null && b == null) {
+                dlog(DEBUG, "    Both directions are null, returning 0");
+                return 0;
+            }
+            if (a == null) {
+                dlog(DEBUG, "    First direction is null, returning 1 (nulls last)");
+                return 1;  // nulls last
+            }
+            if (b == null) {
+                dlog(DEBUG, "    Second direction is null, returning -1 (nulls last)");
+                return -1; // nulls last
+            }
+            // IN (ordinal 0) before OUT (ordinal 1)
+            int result = a.ordinal() - b.ordinal();
+            dlog(DEBUG, "    Direction comparison %s(%d) vs %s(%d) = %d",
+                 a, a.ordinal(), b, b.ordinal(), result);
+            return result;
+        }
+    }
 
     public static final KeyBinding kb_home = KeyBinding.get("mapwnd/home", KeyMatch.forcode(KeyEvent.VK_HOME, 0));
     public static final KeyBinding kb_mark = KeyBinding.get("mapwnd/mark", KeyMatch.nil);

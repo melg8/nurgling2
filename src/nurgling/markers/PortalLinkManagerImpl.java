@@ -23,13 +23,22 @@ import nurgling.teleportation.LayerTransitionDetector;
 import nurgling.teleportation.TeleportationEvent;
 import nurgling.utils.CoordinateTransformer;
 import nurgling.utils.UidGenerator;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Implementation of {@link PortalLinkManager} for managing linked portal markers
@@ -247,6 +256,197 @@ public class PortalLinkManagerImpl implements PortalLinkManager {
     }
 
     /**
+     * Saves all portal links to a JSON file with key "portalLinks".
+     * <p>
+     * This method persists all currently stored links to the save file located at
+     * {@code dataFile}. The links are serialized as a JSON array under the key "portalLinks".
+     * </p>
+     * <p>
+     * Thread-safety: This method is synchronized on the linksByUid map to ensure
+     * consistency during save operations.
+     * </p>
+     *
+     * @param dataFile the path to the save file
+     * @see #loadLinks(String)
+     * @see PortalLinkSaveData
+     */
+    public void saveLinks(String dataFile) {
+        dlog(INFO, "Saving %d portal links to file: %s", linksByUid.size(), dataFile);
+        
+        synchronized (linksByUid) {
+            try {
+                JSONObject main = new JSONObject();
+                JSONArray jLinks = new JSONArray();
+                
+                for (PortalLink link : linksByUid.values()) {
+                    try {
+                        PortalLinkSaveData saveData = new PortalLinkSaveData(link);
+                        jLinks.put(saveData.toJsonObject());
+                        dlog(DEBUG, "Serialized link: %s", saveData.linkUid);
+                    } catch (Exception e) {
+                        dlog(WARN, "Failed to serialize link %s: %s", 
+                             link.getLinkUid(), e.getMessage());
+                    }
+                }
+                
+                main.put("portalLinks", jLinks);
+                main.put("version", 1);
+                main.put("lastSaved", java.time.Instant.now().toString());
+                
+                try (FileWriter writer = new FileWriter(dataFile, StandardCharsets.UTF_8)) {
+                    writer.write(main.toString(2)); // Pretty print with indent
+                    dlog(INFO, "Successfully saved %d portal links", jLinks.length());
+                }
+            } catch (IOException e) {
+                dlog(ERROR, "Failed to save portal links: %s", e.getMessage());
+                throw new RuntimeException("Failed to save portal links", e);
+            }
+        }
+    }
+
+    /**
+     * Loads all portal links from a JSON file with key "portalLinks".
+     * <p>
+     * This method loads links from the save file and reconstructs the PortalLink
+     * objects. Backward compatibility is maintained: if the "portalLinks" key is
+     * absent, an empty list is initialized.
+     * </p>
+     * <p>
+     * Thread-safety: This method clears and repopulates the linksByUid map while
+     * holding a lock to ensure consistency.
+     * </p>
+     *
+     * @param dataFile the path to the save file
+     * @return the number of links loaded
+     * @see #saveLinks(String)
+     * @see PortalLinkSaveData
+     */
+    public int loadLinks(String dataFile) {
+        dlog(INFO, "Loading portal links from file: %s", dataFile);
+        
+        File file = new File(dataFile);
+        if (!file.exists()) {
+            dlog(INFO, "Save file does not exist, initializing empty links");
+            return 0;
+        }
+        
+        synchronized (linksByUid) {
+            linksByUid.clear();
+            
+            StringBuilder contentBuilder = new StringBuilder();
+            try (Stream<String> stream = Files.lines(Paths.get(dataFile), StandardCharsets.UTF_8)) {
+                stream.forEach(s -> contentBuilder.append(s).append("\n"));
+            } catch (IOException e) {
+                dlog(ERROR, "Failed to read save file: %s", e.getMessage());
+                return 0;
+            }
+            
+            String content = contentBuilder.toString().trim();
+            if (content.isEmpty()) {
+                dlog(INFO, "Save file is empty, initializing empty links");
+                return 0;
+            }
+            
+            try {
+                JSONObject main = new JSONObject(content);
+                
+                // Backward compatibility: initialize empty array if key absent
+                if (!main.has("portalLinks")) {
+                    dlog(INFO, "Key 'portalLinks' not found in save file, initializing empty links");
+                    return 0;
+                }
+                
+                JSONArray array = main.getJSONArray("portalLinks");
+                int loadedCount = 0;
+                
+                for (int i = 0; i < array.length(); i++) {
+                    try {
+                        JSONObject linkJson = array.getJSONObject(i);
+                        PortalLinkSaveData saveData = PortalLinkSaveData.fromJsonObject(linkJson);
+                        PortalLink link = saveData.toPortalLink();
+                        
+                        linksByUid.put(link.getLinkUid(), link);
+                        
+                        // Also restore markers
+                        restoreMarker(link.getSourceMarker());
+                        restoreMarker(link.getTargetMarker());
+                        
+                        loadedCount++;
+                        dlog(DEBUG, "Loaded link: %s", link.getLinkUid());
+                    } catch (Exception e) {
+                        dlog(WARN, "Failed to parse link at index %d: %s", i, e.getMessage());
+                    }
+                }
+                
+                dlog(INFO, "Successfully loaded %d portal links", loadedCount);
+                return loadedCount;
+            } catch (Exception e) {
+                dlog(ERROR, "Failed to parse save file JSON: %s", e.getMessage());
+                return 0;
+            }
+        }
+    }
+
+    /**
+     * Restores a marker to the internal marker storage.
+     *
+     * @param marker the PortalMarker to restore
+     */
+    private void restoreMarker(PortalMarker marker) {
+        if (marker != null) {
+            markersByGrid
+                .computeIfAbsent(marker.getGridId(), k -> new HashMap<>())
+                .put(marker.getCoord(), marker);
+        }
+    }
+
+    /**
+     * Recreates a deleted portal marker with preserved UID.
+     * <p>
+     * When a marker is deleted but its link still exists, this method can be used
+     * to recreate the marker on portal revisit. The recreated marker preserves
+     * the original UID, layer, direction, and other properties from the link.
+     * </p>
+     * <p>
+     * This method searches for a link containing the specified gridId and coord.
+     * If found, it returns the appropriate marker (source or target) based on
+     * whether the coordinates match.
+     * </p>
+     *
+     * @param gridId the grid ID where the marker should be recreated
+     * @param coord the coordinates where the marker should be recreated
+     * @return Optional containing the recreated PortalMarker, or empty if no matching link found
+     * @see PortalLink
+     */
+    public Optional<PortalMarker> recreateMarker(long gridId, Coord coord) {
+        dlog(INFO, "Attempting to recreate marker at gridId=%d, coord=%s", gridId, coord);
+        
+        synchronized (linksByUid) {
+            for (PortalLink link : linksByUid.values()) {
+                PortalMarker sourceMarker = link.getSourceMarker();
+                PortalMarker targetMarker = link.getTargetMarker();
+                
+                // Check if source marker matches
+                if (sourceMarker.getGridId() == gridId && sourceMarker.getCoord().equals(coord)) {
+                    dlog(INFO, "Recreated source marker for link %s", link.getLinkUid());
+                    restoreMarker(sourceMarker);
+                    return Optional.of(sourceMarker);
+                }
+                
+                // Check if target marker matches
+                if (targetMarker.getGridId() == gridId && targetMarker.getCoord().equals(coord)) {
+                    dlog(INFO, "Recreated target marker for link %s", link.getLinkUid());
+                    restoreMarker(targetMarker);
+                    return Optional.of(targetMarker);
+                }
+            }
+        }
+        
+        dlog(DEBUG, "No matching link found for marker recreation at gridId=%d, coord=%s", gridId, coord);
+        return Optional.empty();
+    }
+
+    /**
      * Creates a link between two existing portal markers.
      * <p>
      * This method validates that the markers are on adjacent layers
@@ -312,15 +512,21 @@ public class PortalLinkManagerImpl implements PortalLinkManager {
      * @see PortalMarker
      */
     public List<PortalMarker> getLinkedMarkers(PortalMarker marker) {
+        // DEBUG: Log method entry
+        dlog(DEBUG, "getLinkedMarkers called for marker: %s", marker);
+
         if (marker == null || marker.getLinkUid() == null) {
+            dlog(DEBUG, "Marker is null or has no linkUid, returning empty list");
             return new ArrayList<>();
         }
 
         String linkUid = marker.getLinkUid();
+        dlog(DEBUG, "Looking up link for UID: %s", linkUid);
+
         PortalLink link = linksByUid.get(linkUid);
 
         if (link == null) {
-            dprint("No link found for UID: %s", linkUid);
+            dlog(WARN, "No link found for UID: %s", linkUid);
             return new ArrayList<>();
         }
 
@@ -328,11 +534,11 @@ public class PortalLinkManagerImpl implements PortalLinkManager {
             PortalMarker other = link.getOtherMarker(marker);
             List<PortalMarker> result = new ArrayList<>();
             result.add(other);
-            dprint("Found linked marker: %s", other);
+            dlog(INFO, "Found linked marker: %s (UID: %s)", other, linkUid);
             return result;
         } catch (IllegalArgumentException e) {
             // Marker is not part of this link
-            dprint("Marker is not part of link %s: %s", linkUid, e.getMessage());
+            dlog(DEBUG, "Marker is not part of link %s: %s", linkUid, e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -582,17 +788,21 @@ public class PortalLinkManagerImpl implements PortalLinkManager {
     /**
      * Gets the layer number for a grid ID.
      * <p>
-     * This is a simplified implementation that returns 0 for all grids.
-     * In a full implementation, this would look up the layer from a grid registry.
+     * This is a simplified implementation that derives the layer from the grid ID.
+     * Grid IDs in ranges:
+     * - 0-9999: layer 0 (surface)
+     * - 10000-19999: layer 1 (underground level 1)
+     * - 20000-29999: layer 2 (underground level 2)
+     * - etc.
      * </p>
      *
      * @param gridId the grid ID
      * @return the layer number (0 = surface, 1+ = underground)
      */
     private int getLayerForGrid(long gridId) {
-        // Simplified: return 0 (surface) by default
-        // In production, this would look up the actual layer from grid data
-        return 0;
+        // Simplified: derive layer from grid ID ranges
+        // Each 10000 grid IDs represent one layer
+        return (int) (gridId / 10000);
     }
 
     /**
@@ -609,7 +819,52 @@ public class PortalLinkManagerImpl implements PortalLinkManager {
     }
 
     /**
-     * Debug print method for logging.
+     * Log levels for structured logging.
+     * Matches SLF4J levels: DEBUG, INFO, WARN, ERROR
+     */
+    private static final int DEBUG = 0;
+    private static final int INFO = 1;
+    private static final int WARN = 2;
+    private static final int ERROR = 3;
+
+    /**
+     * Current log level threshold. Set to DEBUG to show all logs.
+     * In production, this can be configured or replaced with SLF4J.
+     */
+    private static final int LOG_LEVEL = DEBUG;
+
+    /**
+     * Structured logging method with log levels.
+     * <p>
+     * This method prints messages with appropriate log level prefixes.
+     * In production, this can be replaced with SLF4J logging.
+     * </p>
+     *
+     * @param level the log level (DEBUG, INFO, WARN, ERROR)
+     * @param format the format string
+     * @param args the arguments to be formatted
+     */
+    private void dlog(int level, String format, Object... args) {
+        if (level < LOG_LEVEL) {
+            return;
+        }
+        String levelStr;
+        switch (level) {
+            case DEBUG: levelStr = "DEBUG"; break;
+            case INFO:  levelStr = "INFO";  break;
+            case WARN:  levelStr = "WARN";  break;
+            case ERROR: levelStr = "ERROR"; break;
+            default:    levelStr = "UNKNOWN"; break;
+        }
+        String fullFormat = "[PortalLinkManager] [%s] " + format + "%n";
+        Object[] allArgs = new Object[args.length + 1];
+        allArgs[0] = levelStr;
+        System.arraycopy(args, 0, allArgs, 1, args.length);
+        System.out.printf(fullFormat, allArgs);
+    }
+
+    /**
+     * Debug print method for logging (deprecated, use dlog instead).
      * <p>
      * This method prints debug messages to standard output.
      * In production, this can be replaced with SLF4J logging.
@@ -617,8 +872,10 @@ public class PortalLinkManagerImpl implements PortalLinkManager {
      *
      * @param format the format string
      * @param args the arguments to be formatted
+     * @deprecated Use {@link #dlog(int, String, Object...)} instead
      */
+    @Deprecated
     private void dprint(String format, Object... args) {
-        System.out.printf("[PortalLinkManager] " + format + "%n", args);
+        dlog(DEBUG, format, args);
     }
 }

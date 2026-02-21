@@ -116,6 +116,9 @@
     <pathelement path="etc/postgresql-42.7.5.jar" />
     <pathelement path="etc/sqlite-jdbc-3.49.1.0.jar" />
 	<pathelement path="lib/jglob.jar" />
+	<!-- SLF4J logging dependencies -->
+	<pathelement path="etc/slf4j-api-2.0.16.jar" />
+	<pathelement path="etc/slf4j-simple-2.0.16.jar" />
 	<!-- Test dependencies -->
 	<pathelement path="etc/junit-jupiter-api-5.11.4.jar" />
 	<pathelement path="etc/junit-jupiter-engine-5.11.4.jar" />
@@ -328,6 +331,10 @@
         <pathelement path="etc/postgresql-42.7.5.jar" />
         <pathelement path="etc/sqlite-jdbc-3.49.1.0.jar" />
         <pathelement path="lib/jglob.jar" />
+        <!-- SLF4J logging dependencies -->
+        <pathelement path="etc/slf4j-api-2.0.16.jar" />
+        <pathelement path="etc/slf4j-simple-2.0.16.jar" />
+        <!-- Test dependencies -->
         <pathelement path="etc/junit-jupiter-api-5.11.4.jar" />
         <pathelement path="etc/junit-jupiter-engine-5.11.4.jar" />
         <pathelement path="etc/junit-platform-commons-1.11.4.jar" />
@@ -352,6 +359,8 @@
         <pathelement path="etc/mockito-core-5.15.2.jar" />
         <pathelement path="etc/byte-buddy-1.15.11.jar" />
         <pathelement path="etc/objenesis-3.4.jar" />
+        <pathelement path="etc/slf4j-api-2.0.16.jar" />
+        <pathelement path="etc/slf4j-simple-2.0.16.jar" />
       </classpath>
       <arg value="--scan-classpath" />
       <arg value="--include-engine=junit-jupiter" />

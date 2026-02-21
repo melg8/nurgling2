@@ -6,6 +6,7 @@ import nurgling.*;
 import nurgling.overlays.map.MinimapChunkNavRenderer;
 import nurgling.overlays.map.MinimapClaimRenderer;
 import nurgling.overlays.map.MinimapExploredAreaRenderer;
+import nurgling.overlays.map.MinimapPortalLinkRenderer;
 import nurgling.tools.ExploredArea;
 import nurgling.tools.NParser;
 
@@ -197,6 +198,9 @@ NMiniMap extends MiniMap {
 
         // Render ChunkNav exploration overlay (checks config internally)
         MinimapChunkNavRenderer.renderChunkNav(this, g);
+
+        // Render portal link direction indicators on linked markers (checks config internally)
+        MinimapPortalLinkRenderer.renderPortalLinkIndicators(this, g);
 
         boolean playerSegment = (sessloc != null) && ((curloc == null) || (sessloc.seg.id == curloc.seg.id));
         // Show grid when zoomed in enough (scale >= 0.25, i.e. not too far out)

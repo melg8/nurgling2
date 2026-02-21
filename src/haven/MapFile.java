@@ -290,10 +290,21 @@ public class MapFile {
 
     public static class PMarker extends Marker {
 	public Color color;
+	public String linkUid;
+	public nurgling.markers.Direction direction;
 
 	public PMarker(long seg, Coord tc, String nm, Color color) {
 	    super(seg, tc, nm);
 	    this.color = color;
+	    this.linkUid = null;
+	    this.direction = null;
+	}
+
+	public PMarker(long seg, Coord tc, String nm, Color color, String linkUid, nurgling.markers.Direction direction) {
+	    super(seg, tc, nm);
+	    this.color = color;
+	    this.linkUid = linkUid;
+	    this.direction = direction;
 	}
     }
 
@@ -318,7 +329,31 @@ public class MapFile {
 	    switch(type) {
 	    case 'p':
 		Color color = fp.color();
-		return(new PMarker(seg, tc, nm, color));
+		// Read optional linkUid and direction for portal markers
+		String linkUid = null;
+		nurgling.markers.Direction direction = null;
+		// Check if there's additional data (linkUid length byte)
+		// We need to peek at the next byte without consuming it if it's end of data
+		int savedRh = fp.rh;
+		int savedRt = fp.rt;
+		byte[] savedRbuf = fp.rbuf;
+		try {
+		    int linkUidLen = fp.uint8();
+		    if(linkUidLen >= 0) {
+			byte[] linkUidBytes = fp.bytes(linkUidLen);
+			linkUid = new String(linkUidBytes);
+			int dirOrdinal = fp.uint8();
+			if(dirOrdinal >= 0 && dirOrdinal < nurgling.markers.Direction.values().length) {
+			    direction = nurgling.markers.Direction.values()[dirOrdinal];
+			}
+		    }
+		} catch(Message.EOF e) {
+		    // No additional data, restore state and continue with null values
+		    fp.rh = savedRh;
+		    fp.rt = savedRt;
+		    fp.rbuf = savedRbuf;
+		}
+		return(new PMarker(seg, tc, nm, color, linkUid, direction));
 	    case 's':
 		long oid = fp.int64();
 		Resource.Saved res = new Resource.Saved(Resource.remote(), fp.string(), fp.uint16());
@@ -339,6 +374,16 @@ public class MapFile {
 	if(mark instanceof PMarker) {
 	    fp.adduint8('p');
 	    fp.addcolor(((PMarker)mark).color);
+	    // Save optional linkUid and direction for portal markers
+	    PMarker pm = (PMarker)mark;
+	    if(pm.linkUid != null) {
+		byte[] linkUidBytes = pm.linkUid.getBytes();
+		fp.adduint8(linkUidBytes.length);
+		fp.addbytes(linkUidBytes);
+		fp.adduint8(pm.direction != null ? pm.direction.ordinal() : -1);
+	    } else {
+		fp.adduint8(-1); // No linkUid
+	    }
 	} else if(mark instanceof SMarker) {
 	    SMarker sm = (SMarker)mark;
 	    fp.adduint8('s');

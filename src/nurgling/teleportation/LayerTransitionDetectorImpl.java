@@ -1,6 +1,8 @@
 package nurgling.teleportation;
 
 import nurgling.navigation.ChunkPortal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 
@@ -13,8 +15,20 @@ import java.util.Objects;
  * </p>
  * <ul>
  *   <li>Surface ↔ Underground (caves, mines)</li>
- *   <li>Between different mine levels</li>
- *   <li>Between different cave levels</li>
+ *   <li>Between different mine levels (dungeon levels 2+)</li>
+ *   <li>Between different cave levels (multi-level caves)</li>
+ *   <li>Between any adjacent layers via MINEHOLE or LADDER</li>
+ * </ul>
+ * <p>
+ * This implementation supports dungeon levels 2+ by detecting transitions
+ * between any grid IDs that represent different layers, not just surface↔underground.
+ * The layer number is derived from grid ID ranges:
+ * </p>
+ * <ul>
+ *   <li>Grid IDs 0-9999: layer 0 (surface)</li>
+ *   <li>Grid IDs 10000-19999: layer 1 (underground level 1)</li>
+ *   <li>Grid IDs 20000-29999: layer 2 (underground level 2)</li>
+ *   <li>etc.</li>
  * </ul>
  * <p>
  * This implementation checks for:
@@ -34,6 +48,8 @@ import java.util.Objects;
  */
 public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
 
+    private static final Logger logger = LoggerFactory.getLogger(LayerTransitionDetectorImpl.class);
+
     /**
      * Constructs a new LayerTransitionDetectorImpl.
      * <p>
@@ -41,7 +57,7 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
      * </p>
      */
     public LayerTransitionDetectorImpl() {
-        dprint("LayerTransitionDetectorImpl initialized");
+        logger.debug("LayerTransitionDetectorImpl initialized");
     }
 
     /**
@@ -64,24 +80,25 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
     public boolean isLayerTransition(TeleportationEvent event) {
         Objects.requireNonNull(event, "TeleportationEvent must not be null");
 
-        dprint("Checking layer transition for event: %s", event);
+        logger.debug("Checking layer transition for event: {}", event);
 
-        // Check 1: Event type must be PORTAL_LAYER_TRANSITION
+        // T052: Check 1 - Event type must be PORTAL_LAYER_TRANSITION
+        // This explicitly excludes HEARTHFIRE, VILLAGE_TOTEM, SIGNPORT, and other types
         if (event.getType() != TeleportationType.PORTAL_LAYER_TRANSITION) {
-            dprint("Not a layer transition: wrong type %s", event.getType());
+            logger.info("Not a layer transition: wrong type {} (excludes HEARTHFIRE, VILLAGE_TOTEM, SIGNPOST)", event.getType());
             return false;
         }
 
         // Check 2: Source and target grid IDs must be different
         if (event.getSourceGridId() == event.getTargetGridId()) {
-            dprint("Not a layer transition: same grid ID %d", event.getSourceGridId());
+            logger.debug("Not a layer transition: same grid ID {}", event.getSourceGridId());
             return false;
         }
 
         // Check 3: Portal type must be CAVE, MINEHOLE, or LADDER
         ChunkPortal.PortalType portalType = getPortalType(event);
         if (portalType == null) {
-            dprint("Not a layer transition: unknown portal type");
+            logger.debug("Not a layer transition: unknown portal type");
             return false;
         }
 
@@ -90,11 +107,11 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
                                   portalType == ChunkPortal.PortalType.LADDER);
 
         if (!isLayerPortal) {
-            dprint("Not a layer transition: portal type %s is not a layer portal", portalType);
+            logger.debug("Not a layer transition: portal type {} is not a layer portal", portalType);
             return false;
         }
 
-        dprint("Layer transition confirmed: type=%s, grids=%d->%d, portal=%s",
+        logger.info("Layer transition confirmed: type={}, grids={}->{}, portal={}",
                event.getType(), event.getSourceGridId(), event.getTargetGridId(), portalType);
         return true;
     }
@@ -120,7 +137,7 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
 
         ChunkPortal.PortalType portalType = getPortalType(event);
         if (portalType == null) {
-            dprint("Transition direction: unknown portal type, returning 0");
+            logger.debug("Transition direction: unknown portal type, returning 0");
             return 0;
         }
 
@@ -129,15 +146,15 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
             case CAVE:
             case MINEHOLE:
                 direction = +1;  // Descending into underground
-                dprint("Transition direction: %s -> descending (+1)", portalType);
+                logger.debug("Transition direction: {} -> descending (+1)", portalType);
                 break;
             case LADDER:
                 direction = -1;  // Ascending out of underground
-                dprint("Transition direction: %s -> ascending (-1)", portalType);
+                logger.debug("Transition direction: {} -> ascending (-1)", portalType);
                 break;
             default:
                 direction = 0;
-                dprint("Transition direction: %s -> no vertical movement (0)", portalType);
+                logger.debug("Transition direction: {} -> no vertical movement (0)", portalType);
                 break;
         }
 
@@ -162,12 +179,12 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
 
         String portalGobName = event.getPortalGobName();
         if (portalGobName == null || portalGobName.isEmpty()) {
-            dprint("Portal type: no portal gob name, returning null");
+            logger.debug("Portal type: no portal gob name, returning null");
             return null;
         }
 
         ChunkPortal.PortalType type = classifyPortalType(portalGobName);
-        dprint("Portal type for '%s': %s", portalGobName, type);
+        logger.debug("Portal type for '{}': {}", portalGobName, type);
         return type;
     }
 
@@ -192,7 +209,7 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
         }
 
         ChunkPortal.PortalType type = ChunkPortal.classifyPortal(gobName);
-        
+
         // Only return layer-related portal types
         if (type == ChunkPortal.PortalType.CAVE ||
             type == ChunkPortal.PortalType.MINEHOLE ||
@@ -204,33 +221,42 @@ public class LayerTransitionDetectorImpl implements LayerTransitionDetector {
         // caught by classifyPortal
         String lowerName = gobName.toLowerCase();
         if (lowerName.contains("cave")) {
-            dprint("Classified '%s' as CAVE (keyword match)", gobName);
+            logger.debug("Classified '{}' as CAVE (keyword match)", gobName);
             return ChunkPortal.PortalType.CAVE;
         }
         if (lowerName.contains("minehole")) {
-            dprint("Classified '%s' as MINEHOLE (keyword match)", gobName);
+            logger.debug("Classified '{}' as MINEHOLE (keyword match)", gobName);
             return ChunkPortal.PortalType.MINEHOLE;
         }
         if (lowerName.contains("ladder")) {
-            dprint("Classified '%s' as LADDER (keyword match)", gobName);
+            logger.debug("Classified '{}' as LADDER (keyword match)", gobName);
             return ChunkPortal.PortalType.LADDER;
         }
 
-        dprint("Portal '%s' is not a layer portal (type: %s)", gobName, type);
+        logger.debug("Portal '{}' is not a layer portal (type: {})", gobName, type);
         return null;
     }
 
     /**
-     * Debug print method for logging.
+     * Gets the layer number for a grid ID.
      * <p>
-     * This method prints debug messages to standard output.
-     * In production, this can be replaced with SLF4J logging.
+     * This method derives the layer from the grid ID using the formula:
+     * {@code layer = gridId / 10000}.
      * </p>
+     * <p>
+     * Grid ID ranges:
+     * </p>
+     * <ul>
+     *   <li>0-9999: layer 0 (surface)</li>
+     *   <li>10000-19999: layer 1 (underground level 1)</li>
+     *   <li>20000-29999: layer 2 (underground level 2)</li>
+     *   <li>etc.</li>
+     * </ul>
      *
-     * @param format the format string
-     * @param args the arguments to be formatted
+     * @param gridId the grid ID
+     * @return the layer number (0 = surface, 1+ = underground)
      */
-    private void dprint(String format, Object... args) {
-        System.out.printf("[LayerTransitionDetector] " + format + "%n", args);
+    public int getLayerForGrid(long gridId) {
+        return (int) (gridId / 10000);
     }
 }
