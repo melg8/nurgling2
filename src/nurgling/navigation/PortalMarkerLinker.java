@@ -377,20 +377,55 @@ public class PortalMarkerLinker {
     
     /**
      * Computes marker tile coordinates from portal world coordinates.
-     * 
-     * For initial implementation, uses portal coordinates directly.
-     * Future enhancement: Apply relative position transformation.
+     *
+     * Uses same formula as vanilla MiniMap.markobjs():
+     * sc = tc + (info.sc - gc) * cmaps
      *
      * @param portalCoords portal world coordinates
-     * @param segmentId target segment ID (for future transformation)
-     * @return tile coordinates for marker
+     * @param segmentId target segment ID (for GridInfo lookup)
+     * @return tile coordinates for marker in segment-local space
      */
     private Coord computeMarkerCoordinates(Coord2d portalCoords, long segmentId) {
-        // Use portal coordinates directly converted to tile coordinates
-        // This matches vanilla cave passage marker behavior
-        Coord tc = portalCoords.floor(MCache.tilesz);
-        debugLog.log("[computeMarkerCoordinates] Using portal coords tc=" + tc);
-        return tc;
+        try {
+            GameUI gui = NUtils.getGameUI();
+            if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
+                return portalCoords.floor(MCache.tilesz);
+            }
+
+            MCache mcache = gui.map.glob.map;
+            MapFile file = getMapFile();
+            if (file == null) {
+                return portalCoords.floor(MCache.tilesz);
+            }
+
+            // Get tile coordinates
+            Coord tc = portalCoords.floor(MCache.tilesz);
+
+            // Get grid cell coordinates
+            Coord gc = tc.div(MCache.cmaps);
+
+            // Get the grid to access its info
+            MCache.Grid grid = mcache.getgridt(tc);
+            if (grid == null) {
+                return tc;
+            }
+
+            // Get GridInfo from MapFile to get segment-local origin
+            MapFile.GridInfo info = file.gridinfo.get(grid.id);
+            if (info == null) {
+                debugLog.log("[computeMarkerCoordinates] GridInfo null for grid " + grid.id + " - using tc");
+                return tc;
+            }
+
+            // Compute segment-local coordinates using vanilla formula:
+            // sc = tc + (info.sc - gc) * cmaps
+            Coord sc = tc.add(info.sc.sub(gc).mul(MCache.cmaps));
+            debugLog.log("[computeMarkerCoordinates] Computed sc=" + sc + " from tc=" + tc + ", info.sc=" + info.sc + ", gc=" + gc);
+            return sc;
+        } catch (Exception e) {
+            debugLog.log("[computeMarkerCoordinates] ERROR: " + e.getMessage());
+            return portalCoords.floor(MCache.tilesz);
+        }
     }
     
     /**
