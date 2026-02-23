@@ -32,6 +32,16 @@ echo Using Java: %JAVA_CMD%
 "%JAVA_CMD%" --version
 
 cd /d "%~dp0"
+
+REM Build project before running
+echo Building project...
+call build_with_proxy.bat
+if errorlevel 1 (
+    echo Build failed!
+    pause
+    exit /b 1
+)
+
 cd bin
 
 REM Clear old logs before starting
