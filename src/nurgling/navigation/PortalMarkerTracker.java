@@ -95,18 +95,6 @@ public class PortalMarkerTracker {
     private final PlayerPositionLogger positionLogger = new PlayerPositionLogger();
     
     /**
-     * Pending transition for retry (when MapFile not available).
-     */
-    private LayerTransition pendingTransition = null;
-    private long pendingTransitionCreatedTime = 0;
-    private static final long PENDING_TRANSITION_TIMEOUT_MS = 30000; // 30 seconds
-    
-    /**
-     * Static reference to the tracker instance (for clearing from tests).
-     */
-    private static PortalMarkerTracker instance = null;
-
-    /**
      * Tracking enabled flag.
      */
     private boolean enabled = true;
@@ -136,37 +124,8 @@ public class PortalMarkerTracker {
     public PortalMarkerTracker() {
         this.markerLinker = new PortalMarkerLinker();
         this.logger = new PortalMarkerLogger();
-        instance = this;
     }
-    
-    /**
-     * Clear all tracker state (for testing).
-     */
-    public void clear() {
-        cachedPortalGob = null;
-        cachedPortalLocalCoord = null;
-        cachedPortalPlayerPosition = null;
-        cachedPortalGridId = -1;
-        pendingTransition = null;
-        pendingTransitionCreatedTime = 0;
-        lastProcessedFromGridId = -1;
-        lastProcessedToGridId = -1;
-        lastProcessedTime = 0;
-        lastProcessedPortalGobId = -1;
-        lastGridId = -1;
-        lastSegmentId = -1;
-        debugLog.log("[clear] Tracker state cleared");
-    }
-    
-    /**
-     * Static method to clear tracker from anywhere (for tests).
-     */
-    public static void clearInstance() {
-        if (instance != null) {
-            instance.clear();
-        }
-    }
-    
+
     /**
      * Call periodically from game loop.
      * Should be called from NMapView.tick() or NCore.tick().
@@ -195,27 +154,6 @@ public class PortalMarkerTracker {
         debugLog.log("[tick] calling doCheck()");
 
         try {
-            // First, try to process any pending transition (retry if MapFile was not available)
-            if (pendingTransition != null) {
-                debugLog.log("[tick] Processing pending transition...");
-                if (now - pendingTransitionCreatedTime > PENDING_TRANSITION_TIMEOUT_MS) {
-                    debugLog.log("[tick] Pending transition timeout - giving up");
-                    pendingTransition = null;
-                } else {
-                    try {
-                        PortalMarkerLink link = markerLinker.linkPortalMarkers(pendingTransition);
-                        debugLog.log("[tick] Pending transition succeeded: " + link);
-                        pendingTransition = null;
-                    } catch (haven.Loading e) {
-                        debugLog.log("[tick] Pending transition still Loading: " + e.getMessage());
-                        // Keep pending for next retry
-                    } catch (Exception e) {
-                        debugLog.log("[tick] Pending transition failed: " + e.getMessage());
-                        pendingTransition = null;
-                    }
-                }
-            }
-            
             doCheck();
         } catch (Exception e) {
             debugLog.log("[tick] ERROR: " + e.getMessage());
@@ -417,25 +355,13 @@ public class PortalMarkerTracker {
         try {
             PortalMarkerLink link = markerLinker.linkPortalMarkers(transition);
             debugLog.log("[onGridChanged] Link created: " + link);
-
-        } catch (haven.Loading e) {
-            // Map data not ready - save for retry
-            debugLog.log("[onGridChanged] Loading - saving for retry: " + e.getMessage());
-            pendingTransition = transition;
-            pendingTransitionCreatedTime = System.currentTimeMillis();
+            
         } catch (Exception e) {
             String errorMsg = e.getMessage();
             debugLog.log("[onGridChanged] ERROR: " + errorMsg);
             e.printStackTrace();
-            logger.logMarkerError("LINK_PORTAL_MARKERS_FAILED", 
+            logger.logMarkerError("LINK_PORTAL_MARKERS_FAILED",
                 "transition=" + transition + ", error=" + e.getMessage());
-            
-            // If error is "Waiting for map data", save transition for retry
-            if (errorMsg != null && errorMsg.contains("Waiting for map data")) {
-                debugLog.log("[onGridChanged] Saving transition for retry (MapFile not ready)");
-                pendingTransition = transition;
-                pendingTransitionCreatedTime = System.currentTimeMillis();
-            }
         }
         
         // Clear cached portal after processing
