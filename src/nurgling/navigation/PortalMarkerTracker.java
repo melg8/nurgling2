@@ -215,6 +215,7 @@ public class PortalMarkerTracker {
                 cachedPortalGob = lastActions.gob;
                 cachedPortalLocalCoord = getGobLocalCoord(lastActions.gob);
                 cachedPortalPlayerPosition = player.rc; // Save player position at time of portal capture
+                lastProcessedPortalGobId = lastActions.gob.id; // Mark as processed to prevent recapture
                 debugLog.log("[doCheck] Portal local coords: " + cachedPortalLocalCoord + ", player at " + cachedPortalPlayerPosition);
 
                 // Get portal's grid ID
@@ -353,10 +354,7 @@ public class PortalMarkerTracker {
         try {
             PortalMarkerLink link = markerLinker.linkPortalMarkers(transition);
             debugLog.log("[onGridChanged] Link created: " + link);
-            
-            // Mark the cached portal as processed
-            lastProcessedPortalGobId = cachedPortalGob.id;
-            
+
         } catch (haven.Loading e) {
             // Map data not ready - save for retry
             debugLog.log("[onGridChanged] Loading - saving for retry: " + e.getMessage());
