@@ -90,6 +90,11 @@ public class PortalMarkerTracker {
     private long cachedPortalGridId = -1;
     
     /**
+     * Player position logger (logs every 500ms).
+     */
+    private final PlayerPositionLogger positionLogger = new PlayerPositionLogger();
+    
+    /**
      * Pending transition for retry (when MapFile not available).
      */
     private LayerTransition pendingTransition = null;
@@ -133,6 +138,9 @@ public class PortalMarkerTracker {
      * Should be called from NMapView.tick() or NCore.tick().
      */
     public void tick() {
+        // Log player position every 500ms
+        positionLogger.tick();
+        
         // Check config
         Object enabledObj = NConfig.get(NConfig.Key.portalMarkerAutoCreate);
         boolean configEnabled = (enabledObj instanceof Boolean) && (Boolean) enabledObj;
