@@ -312,8 +312,11 @@ public class PortalMarkerLinker {
         try {
             MapFile file = getMapFile();
             if (file == null) {
+                debugLog.log("[createMarker] MapFile is null - cannot create marker: " + name);
                 throw new RuntimeException("MapFile not available");
             }
+            
+            debugLog.log("[createMarker] Creating marker: " + name + " on segment=" + segmentId + " at " + coords);
 
             // Create SMarker (system marker) like the vanilla cave passage system
             // Use cave icon resource for the marker
@@ -326,12 +329,18 @@ public class PortalMarkerLinker {
             // Add marker to MapFile
             if (file.markers != null) {
                 file.add(marker);
+                debugLog.log("[createMarker] Marker added to MapFile: " + name);
+            } else {
+                debugLog.log("[createMarker] file.markers is null - marker may not persist");
             }
 
             // Return pseudo-ID (segment XOR coordinates)
-            return segmentId ^ (coords.x * 31 + coords.y);
+            long pseudoId = segmentId ^ (coords.x * 31 + coords.y);
+            debugLog.log("[createMarker] Marker created with pseudoId=" + pseudoId);
+            return pseudoId;
 
         } catch (Exception e) {
+            debugLog.log("[createMarker] ERROR: " + e.getMessage());
             logger.logMarkerError("CREATE_MARKER_FAILED",
                 "segment=" + segmentId + ", coords=(" + coords.x + "," + coords.y + 
                 "), name=\"" + name + "\", error=" + e.getMessage());

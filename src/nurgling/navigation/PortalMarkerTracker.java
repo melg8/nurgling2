@@ -89,6 +89,13 @@ public class PortalMarkerTracker {
     private long cachedPortalGridId = -1;
     
     /**
+     * Pending transition for retry (when MapFile not available).
+     */
+    private LayerTransition pendingTransition = null;
+    private long pendingTransitionCreatedTime = 0;
+    private static final long PENDING_TRANSITION_TIMEOUT_MS = 5000; // 5 seconds
+    
+    /**
      * Tracking enabled flag.
      */
     private boolean enabled = true;
@@ -145,6 +152,24 @@ public class PortalMarkerTracker {
         lastCheckTime = now;
         
         try {
+            // First, try to process any pending transition (retry if MapFile was not available)
+            if (pendingTransition != null) {
+                debugLog.log("[tick] Processing pending transition...");
+                if (now - pendingTransitionCreatedTime > PENDING_TRANSITION_TIMEOUT_MS) {
+                    debugLog.log("[tick] Pending transition timeout - giving up");
+                    pendingTransition = null;
+                } else {
+                    try {
+                        PortalMarkerLink link = markerLinker.linkPortalMarkers(pendingTransition);
+                        debugLog.log("[tick] Pending transition succeeded: " + link);
+                        pendingTransition = null;
+                    } catch (Exception e) {
+                        debugLog.log("[tick] Pending transition still failing: " + e.getMessage());
+                        // Keep pending for next tick
+                    }
+                }
+            }
+            
             doCheck();
         } catch (Exception e) {
             debugLog.log("[tick] ERROR: " + e.getMessage());
@@ -253,6 +278,12 @@ public class PortalMarkerTracker {
         lastProcessedToGridId = toGridId;
         lastProcessedTime = now;
         
+        // Check if this is actually a layer transition (segments must be different)
+        if (fromSegmentId == toSegmentId) {
+            debugLog.log("[onGridChanged] Same segment (fromSeg=" + fromSegmentId + ") - not a layer transition, skipping");
+            return;
+        }
+        
         // Check if player landed on their hearthfire - this indicates a teleport, not a portal traversal
         if (isPlayerOnHearthfire(player)) {
             debugLog.log("[onGridChanged] HEARTHFIRE teleport detected - skipping");
@@ -313,10 +344,18 @@ public class PortalMarkerTracker {
             lastProcessedPortalGobId = cachedPortalGob.id;
             
         } catch (Exception e) {
-            debugLog.log("[onGridChanged] ERROR creating link: " + e.getMessage());
+            String errorMsg = e.getMessage();
+            debugLog.log("[onGridChanged] ERROR creating link: " + errorMsg);
             e.printStackTrace();
             logger.logMarkerError("LINK_PORTAL_MARKERS_FAILED", 
                 "transition=" + transition + ", error=" + e.getMessage());
+            
+            // If error is "Waiting for map data", save transition for retry
+            if (errorMsg != null && errorMsg.contains("Waiting for map data")) {
+                debugLog.log("[onGridChanged] Saving transition for retry (MapFile not ready)");
+                pendingTransition = transition;
+                pendingTransitionCreatedTime = System.currentTimeMillis();
+            }
         }
         
         // Clear cached portal after processing
