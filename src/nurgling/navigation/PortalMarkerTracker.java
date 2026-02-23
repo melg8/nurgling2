@@ -86,6 +86,7 @@ public class PortalMarkerTracker {
      */
     private Gob cachedPortalGob = null;
     private Coord2d cachedPortalLocalCoord = null;
+    private Coord2d cachedPortalPlayerPosition = null;
     private long cachedPortalGridId = -1;
     
     /**
@@ -213,6 +214,8 @@ public class PortalMarkerTracker {
                 debugLog.log("[doCheck] Portal CAPTURED: " + lastActions.gob.ngob.name);
                 cachedPortalGob = lastActions.gob;
                 cachedPortalLocalCoord = getGobLocalCoord(lastActions.gob);
+                cachedPortalPlayerPosition = player.rc; // Save player position at time of portal capture
+                debugLog.log("[doCheck] Portal local coords: " + cachedPortalLocalCoord + ", player at " + cachedPortalPlayerPosition);
 
                 // Get portal's grid ID
                 if (cachedPortalLocalCoord != null) {
@@ -220,7 +223,7 @@ public class PortalMarkerTracker {
                         MCache.Grid portalGrid = mcache.getgridt(cachedPortalLocalCoord.floor(MCache.tilesz));
                         if (portalGrid != null) {
                             cachedPortalGridId = portalGrid.id;
-                            debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId);
+                            debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId + " at " + cachedPortalLocalCoord.floor(MCache.tilesz));
                         }
                     } catch (Exception e) {
                         debugLog.log("[doCheck] Failed to get portal grid: " + e.getMessage());
@@ -241,6 +244,7 @@ public class PortalMarkerTracker {
         // Check for segment change (layer transition via cave/minehole/ladder)
         // Cave passages change segment ID but NOT grid ID
         debugLog.log("[doCheck] Checking segment change: currentSegmentId=" + currentSegmentId + ", lastSegmentId=" + lastSegmentId);
+        debugLog.log("[doCheck] Player position: " + player.rc);
         if (lastSegmentId != -1 && currentSegmentId != -1 && currentSegmentId != lastSegmentId) {
             debugLog.log("[doCheck] SEGMENT CHANGED DETECTED: " + lastSegmentId + " -> " + currentSegmentId);
             debugLog.log("[doCheck] Grid IDs: currentGridId=" + currentGridId + ", lastGridId=" + lastGridId);
@@ -322,20 +326,23 @@ public class PortalMarkerTracker {
             return;
         }
         
-        // Use cached portal coordinates (captured BEFORE grid change)
+        // Use cached portal coordinates and player position (captured BEFORE grid change)
         Coord2d portalCoords = cachedPortalLocalCoord;
+        Coord2d playerPosAtPortal = cachedPortalPlayerPosition;
         if (portalCoords == null) {
             portalCoords = player.rc;
+            playerPosAtPortal = player.rc;
             debugLog.log("[onGridChanged] Using player position as fallback");
         }
-        
-        // Create layer transition
+
+        // Create layer transition with player position at time of portal click
         LayerTransition transition = new LayerTransition(
             fromSegmentId,
             toSegmentId,
             portalCoords,
             portalName,
-            player.rc
+            playerPosAtPortal, // Player position when portal was clicked (for IN marker)
+            player.rc          // Player position after transition (for OUT marker)
         );
         
         // Log transition
@@ -373,6 +380,7 @@ public class PortalMarkerTracker {
         // Clear cached portal after processing
         cachedPortalGob = null;
         cachedPortalLocalCoord = null;
+        cachedPortalPlayerPosition = null;
         cachedPortalGridId = -1;
     }
     

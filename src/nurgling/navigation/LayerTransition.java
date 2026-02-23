@@ -55,26 +55,33 @@ public class LayerTransition {
     public final long timestamp;
     
     /**
-     * Player's position after transition (for debugging).
+     * Player's position when portal was clicked (for IN marker).
      */
-    public final Coord2d playerPosition;
-    
+    public final Coord2d playerPositionAtPortal;
+
+    /**
+     * Player's position after transition (for OUT marker).
+     */
+    public final Coord2d playerPositionAfterTransition;
+
     /**
      * Creates a new LayerTransition instance.
-     * 
+     *
      * @param fromSegmentId source segment ID
      * @param toSegmentId destination segment ID
      * @param portalCoordinates portal world coordinates
      * @param portalName portal resource name
-     * @param playerPosition player's position after transition
+     * @param playerPositionAtPortal player's position when portal was clicked (for IN marker)
+     * @param playerPositionAfterTransition player's position after transition (for OUT marker)
      */
-    public LayerTransition(long fromSegmentId, long toSegmentId, Coord2d portalCoordinates, 
-                           String portalName, Coord2d playerPosition) {
+    public LayerTransition(long fromSegmentId, long toSegmentId, Coord2d portalCoordinates,
+                           String portalName, Coord2d playerPositionAtPortal, Coord2d playerPositionAfterTransition) {
         this.fromSegmentId = fromSegmentId;
         this.toSegmentId = toSegmentId;
         this.portalCoordinates = portalCoordinates;
         this.portalName = portalName;
-        this.playerPosition = playerPosition;
+        this.playerPositionAtPortal = playerPositionAtPortal;
+        this.playerPositionAfterTransition = playerPositionAfterTransition;
         this.timestamp = System.currentTimeMillis();
     }
     
