@@ -59,6 +59,45 @@ public class PortalMarkerLinker {
     private final PortalMarkerLogger logger;
     
     /**
+     * Debug logger for tracing execution flow.
+     */
+    private static final DebugLogger debugLog = new DebugLogger("logs/portal_marker_linker_debug.log");
+    
+    /**
+     * Simple file-based debug logger.
+     */
+    private static class DebugLogger {
+        private final String filename;
+        
+        DebugLogger(String filename) {
+            this.filename = filename;
+            clear(); // Clear log on startup
+        }
+        
+        private void clear() {
+            try {
+                java.io.File logDir = new java.io.File("logs");
+                if (!logDir.exists()) logDir.mkdirs();
+                java.io.FileWriter fw = new java.io.FileWriter(new java.io.File(filename));
+                fw.write("=== Portal Marker Linker Debug Log (started " + new java.util.Date() + ") ===\n");
+                fw.close();
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+        
+        void log(String message) {
+            try {
+                java.io.FileWriter fw = new java.io.FileWriter(new java.io.File(filename), true);
+                fw.write("[" + java.time.LocalTime.now().toString().substring(0,12) + "] " + message + "\n");
+                fw.close();
+            } catch (Exception e) {
+                // Ignore logging errors
+            }
+        }
+    }
+    
+    /**
      * Regex pattern for matching linked marker names.
      * Matches: "[Name] [UID] [IN/OUT]" where UID is 6 alphanumeric chars.
      * Example: "Cave ABC123 IN", "Hole XYZ789 OUT"
@@ -114,6 +153,8 @@ public class PortalMarkerLinker {
      * @return PortalMarkerLink representing the created (or existing) link
      */
     public PortalMarkerLink linkPortalMarkers(LayerTransition transition) {
+        debugLog.log("[linkPortalMarkers] START: " + transition);
+        
         // Step 1: Generate UID from segment pair and coordinates
         String uid = uidGenerator.generate(
             transition.fromSegmentId,
@@ -122,6 +163,7 @@ public class PortalMarkerLinker {
         );
 
         long xorSegment = transition.getXorSegmentPair();
+        debugLog.log("[linkPortalMarkers] UID generated: " + uid + " (xorSegment=" + xorSegment + ")");
         logger.logUidGeneration(xorSegment, transition.portalCoordinates, uid);
 
         // Step 2: Check for existing markers with same UID
@@ -131,6 +173,7 @@ public class PortalMarkerLinker {
         );
 
         if (existing.isPresent()) {
+            debugLog.log("[linkPortalMarkers] Link already exists - skipping");
             logger.logMarkerSkipped(uid, "already_exists");
             return existing.get();
         }
@@ -141,10 +184,12 @@ public class PortalMarkerLinker {
             transition.toSegmentId,
             transition.portalName
         );
+        debugLog.log("[linkPortalMarkers] Direction: " + direction);
 
         // Step 4: Get marker name prefix and icon
         String namePrefix = PortalName.getNamePrefix(transition.portalName);
         String iconName = PortalName.getIconName(transition.portalName, direction);
+        debugLog.log("[linkPortalMarkers] namePrefix=" + namePrefix + ", icon=" + iconName);
 
         // Step 5: Create entrance marker (IN direction)
         // Entrance is on the fromSegment (where player was before transition)
@@ -153,6 +198,7 @@ public class PortalMarkerLinker {
             transition.portalCoordinates,
             transition.fromSegmentId
         );
+        debugLog.log("[linkPortalMarkers] Creating entrance marker: " + entranceName + " at " + entranceCoords);
 
         long entranceMarkerId = createMarker(
             transition.fromSegmentId,
@@ -160,6 +206,7 @@ public class PortalMarkerLinker {
             entranceName,
             DEFAULT_MARKER_COLOR
         );
+        debugLog.log("[linkPortalMarkers] Entrance marker ID: " + entranceMarkerId);
 
         logger.logMarkerCreated(uid, "IN", transition.fromSegmentId, entranceCoords, entranceName);
 
@@ -170,6 +217,7 @@ public class PortalMarkerLinker {
             transition.portalCoordinates,
             transition.toSegmentId
         );
+        debugLog.log("[linkPortalMarkers] Creating exit marker: " + exitName + " at " + exitCoords);
 
         long exitMarkerId = createMarker(
             transition.toSegmentId,
@@ -177,6 +225,7 @@ public class PortalMarkerLinker {
             exitName,
             DEFAULT_MARKER_COLOR
         );
+        debugLog.log("[linkPortalMarkers] Exit marker ID: " + exitMarkerId);
 
         logger.logMarkerCreated(uid, "OUT", transition.toSegmentId, exitCoords, exitName);
 
@@ -191,6 +240,8 @@ public class PortalMarkerLinker {
             transition.toSegmentId,
             exitCoords
         );
+        
+        debugLog.log("[linkPortalMarkers] Link created: " + link);
 
         return link;
     }

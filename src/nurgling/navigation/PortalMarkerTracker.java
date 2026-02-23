@@ -33,6 +33,45 @@ public class PortalMarkerTracker {
     private final PortalMarkerLogger logger;
     
     /**
+     * Debug logger for tracing execution flow.
+     */
+    public static final DebugLogger debugLog = new DebugLogger("logs/portal_marker_tracker_debug.log");
+    
+    /**
+     * Simple file-based debug logger.
+     */
+    public static class DebugLogger {
+        private final String filename;
+        
+        public DebugLogger(String filename) {
+            this.filename = filename;
+            clear(); // Clear log on startup
+        }
+        
+        private void clear() {
+            try {
+                java.io.File logDir = new java.io.File("logs");
+                if (!logDir.exists()) logDir.mkdirs();
+                java.io.FileWriter fw = new java.io.FileWriter(new java.io.File(filename));
+                fw.write("=== Portal Marker Tracker Debug Log (started " + new java.util.Date() + ") ===\n");
+                fw.close();
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+        
+        public void log(String message) {
+            try {
+                java.io.FileWriter fw = new java.io.FileWriter(new java.io.File(filename), true);
+                fw.write("[" + java.time.LocalTime.now().toString().substring(0,12) + "] " + message + "\n");
+                fw.close();
+            } catch (Exception e) {
+                // Ignore logging errors
+            }
+        }
+    }
+    
+    /**
      * Last known grid ID.
      */
     private long lastGridId = -1;
@@ -86,11 +125,16 @@ public class PortalMarkerTracker {
      * Should be called from NMapView.tick() or NCore.tick().
      */
     public void tick() {
+        debugLog.log("[tick] START");
+        
         // Check config
         Object enabledObj = NConfig.get(NConfig.Key.portalMarkerAutoCreate);
         boolean configEnabled = (enabledObj instanceof Boolean) && (Boolean) enabledObj;
         
+        debugLog.log("[tick] config: portalMarkerAutoCreate=" + configEnabled + ", enabled=" + enabled);
+        
         if (!enabled || !configEnabled) {
+            debugLog.log("[tick] DISABLED - returning");
             return;
         }
         
@@ -103,7 +147,8 @@ public class PortalMarkerTracker {
         try {
             doCheck();
         } catch (Exception e) {
-            // Silently ignore errors in tick
+            debugLog.log("[tick] ERROR: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -111,30 +156,37 @@ public class PortalMarkerTracker {
      * Main check logic.
      */
     private void doCheck() {
+        debugLog.log("[doCheck] START");
+        
         GameUI gui = NUtils.getGameUI();
         if (gui == null || gui.map == null) {
+            debugLog.log("[doCheck] gui or map is null");
             return;
         }
         
         Gob player = NUtils.player();
         if (player == null) {
+            debugLog.log("[doCheck] player is null");
             return;
         }
         
         // Get current grid ID from MCache
         MCache mcache = gui.map.glob.map;
         if (mcache == null) {
+            debugLog.log("[doCheck] mcache is null");
             return;
         }
         
         Coord2d playerRC = player.rc;
         if (playerRC == null) {
+            debugLog.log("[doCheck] playerRC is null");
             return;
         }
         
         // Get current grid
         MCache.Grid currentGrid = mcache.getgridt(playerRC.floor(MCache.tilesz));
         if (currentGrid == null) {
+            debugLog.log("[doCheck] currentGrid is null");
             return;
         }
         
@@ -146,8 +198,11 @@ public class PortalMarkerTracker {
             currentSegmentId = gui.mapfile.view.sessloc.seg.id;
         }
         
+        debugLog.log("[doCheck] gridId=" + currentGridId + ", segmentId=" + currentSegmentId + ", lastGridId=" + lastGridId + ", lastSegmentId=" + lastSegmentId);
+        
         // Check for grid change (portal transition)
         if (lastGridId != -1 && currentGridId != lastGridId) {
+            debugLog.log("[doCheck] GRID CHANGED: " + lastGridId + " -> " + currentGridId);
             onGridChanged(lastGridId, currentGridId, lastSegmentId, currentSegmentId, player);
         }
         
@@ -155,7 +210,9 @@ public class PortalMarkerTracker {
         NCore.LastActions lastActions = NUtils.getUI().core.getLastActions();
         if (lastActions != null && lastActions.gob != null && lastActions.gob.ngob != null) {
             String gobName = lastActions.gob.ngob.name.toLowerCase();
+            debugLog.log("[doCheck] lastActions.gob=" + lastActions.gob.ngob.name);
             if (isPortalGob(gobName) && lastActions.gob.id != lastProcessedPortalGobId) {
+                debugLog.log("[doCheck] Portal CAPTURED: " + lastActions.gob.ngob.name);
                 cachedPortalGob = lastActions.gob;
                 cachedPortalLocalCoord = getGobLocalCoord(lastActions.gob);
                 
@@ -164,6 +221,7 @@ public class PortalMarkerTracker {
                     MCache.Grid portalGrid = mcache.getgridt(cachedPortalLocalCoord.floor(MCache.tilesz));
                     if (portalGrid != null) {
                         cachedPortalGridId = portalGrid.id;
+                        debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId);
                     }
                 }
             }
@@ -180,10 +238,13 @@ public class PortalMarkerTracker {
     private void onGridChanged(long fromGridId, long toGridId, 
                                long fromSegmentId, long toSegmentId, 
                                Gob player) {
+        debugLog.log("[onGridChanged] fromGrid=" + fromGridId + " -> toGrid=" + toGridId + ", fromSeg=" + fromSegmentId + " -> toSeg=" + toSegmentId);
+        
         // Check for duplicate grid transition
         long now = System.currentTimeMillis();
         if (fromGridId == lastProcessedFromGridId && toGridId == lastProcessedToGridId &&
             (now - lastProcessedTime) < DUPLICATE_PREVENTION_MS) {
+            debugLog.log("[onGridChanged] DUPLICATE transition - skipping");
             return;
         }
         
@@ -194,6 +255,7 @@ public class PortalMarkerTracker {
         
         // Check if player landed on their hearthfire - this indicates a teleport, not a portal traversal
         if (isPlayerOnHearthfire(player)) {
+            debugLog.log("[onGridChanged] HEARTHFIRE teleport detected - skipping");
             logger.logSkippedTransition("hearthfire_teleport", 
                 "fromGrid=" + fromGridId + ", toGrid=" + toGridId);
             return;
@@ -201,19 +263,23 @@ public class PortalMarkerTracker {
         
         // If we don't have a cached portal, we didn't click a known portal - don't create markers
         if (cachedPortalGob == null || cachedPortalGob.ngob == null) {
+            debugLog.log("[onGridChanged] NO cached portal - skipping");
             return;
         }
         
         String portalName = cachedPortalGob.ngob.name;
+        debugLog.log("[onGridChanged] portalName=" + portalName);
         
         // Exclude cellar from marking
         if (portalName.toLowerCase().contains("cellar")) {
+            debugLog.log("[onGridChanged] CELLAR excluded - skipping");
             logger.logSkippedTransition("cellar_excluded", "portal=" + portalName);
             return;
         }
         
         // Check if this is a portal that should be marked
         if (!PortalName.shouldMarkPortal(portalName)) {
+            debugLog.log("[onGridChanged] Portal type should not be marked: " + portalName);
             logger.logSkippedTransition("unsupported_portal_type", "portal=" + portalName);
             return;
         }
@@ -222,6 +288,7 @@ public class PortalMarkerTracker {
         Coord2d portalCoords = cachedPortalLocalCoord;
         if (portalCoords == null) {
             portalCoords = player.rc; // Fallback to player position
+            debugLog.log("[onGridChanged] Using player position as fallback");
         }
         
         // Create layer transition
@@ -235,15 +302,19 @@ public class PortalMarkerTracker {
         
         // Log transition
         logger.logTransition(fromSegmentId, toSegmentId, portalCoords, portalName);
+        debugLog.log("[onGridChanged] Calling markerLinker.linkPortalMarkers()");
         
         // Create linked markers
         try {
             PortalMarkerLink link = markerLinker.linkPortalMarkers(transition);
+            debugLog.log("[onGridChanged] Link created: " + link);
             
             // Mark the cached portal as processed
             lastProcessedPortalGobId = cachedPortalGob.id;
             
         } catch (Exception e) {
+            debugLog.log("[onGridChanged] ERROR creating link: " + e.getMessage());
+            e.printStackTrace();
             logger.logMarkerError("LINK_PORTAL_MARKERS_FAILED", 
                 "transition=" + transition + ", error=" + e.getMessage());
         }

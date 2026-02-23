@@ -84,11 +84,15 @@ public class NMapView extends MapView
             chunkNavManager.initialize(genus);
         } catch(Exception e) {
             System.err.println("NMapView: Error initializing ChunkNavManager: " + e.getMessage());
+            e.printStackTrace();
         }
         
         // Initialize portal marker tracker (independent of ChunkNav)
         if (portalMarkerTracker == null) {
             portalMarkerTracker = new PortalMarkerTracker();
+            PortalMarkerTracker.debugLog.log("[NMapView.initializeWithGenus] PortalMarkerTracker CREATED");
+        } else {
+            PortalMarkerTracker.debugLog.log("[NMapView.initializeWithGenus] PortalMarkerTracker already exists");
         }
     }
 
@@ -796,6 +800,8 @@ public class NMapView extends MapView
         // Tick portal marker tracker for automatic marker linking
         if (portalMarkerTracker != null) {
             portalMarkerTracker.tick();
+        } else {
+            PortalMarkerTracker.debugLog.log("[NMapView.tick] portalMarkerTracker is NULL - not initialized!");
         }
         ArrayList<Long> forRemove = new ArrayList<>();
 //        for(Gob dummy : dummys.values())
