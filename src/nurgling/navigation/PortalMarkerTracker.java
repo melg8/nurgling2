@@ -180,45 +180,67 @@ public class PortalMarkerTracker {
         if (gui == null || gui.map == null) {
             return;
         }
-        
+
         Gob player = NUtils.player();
         if (player == null) {
             return;
         }
-        
+
         // Get current grid ID from MCache
         MCache mcache = gui.map.glob.map;
         if (mcache == null) {
             return;
         }
-        
+
         Coord2d playerRC = player.rc;
         if (playerRC == null) {
             return;
         }
-        
+
         // Get current grid
         MCache.Grid currentGrid = mcache.getgridt(playerRC.floor(MCache.tilesz));
         if (currentGrid == null) {
             return;
         }
-        
+
         long currentGridId = currentGrid.id;
-        
+
         // Get current segment ID from MapFile
         long currentSegmentId = -1;
         if (gui.mapfile != null && gui.mapfile.view != null && gui.mapfile.view.sessloc != null) {
             currentSegmentId = gui.mapfile.view.sessloc.seg.id;
         }
-        
+
         debugLog.log("[doCheck] gridId=" + currentGridId + ", segmentId=" + currentSegmentId + ", lastGridId=" + lastGridId + ", lastSegmentId=" + lastSegmentId);
-        
+
+        // Capture portal from lastActions BEFORE checking grid change
+        // This is critical - portal must be captured before onGridChanged() is called
+        NCore.LastActions lastActions = NUtils.getUI().core.getLastActions();
+        if (lastActions != null && lastActions.gob != null && lastActions.gob.ngob != null) {
+            String gobName = lastActions.gob.ngob.name.toLowerCase();
+            debugLog.log("[doCheck] lastActions.gob=" + lastActions.gob.ngob.name);
+            if (isPortalGob(gobName) && lastActions.gob.id != lastProcessedPortalGobId) {
+                debugLog.log("[doCheck] Portal CAPTURED: " + lastActions.gob.ngob.name);
+                cachedPortalGob = lastActions.gob;
+                cachedPortalLocalCoord = getGobLocalCoord(lastActions.gob);
+
+                // Get portal's grid ID
+                if (cachedPortalLocalCoord != null) {
+                    MCache.Grid portalGrid = mcache.getgridt(cachedPortalLocalCoord.floor(MCache.tilesz));
+                    if (portalGrid != null) {
+                        cachedPortalGridId = portalGrid.id;
+                        debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId);
+                    }
+                }
+            }
+        }
+
         // Check for grid change (portal transition)
         if (lastGridId != -1 && currentGridId != lastGridId) {
             // If we already have a pending transition for this exact change, don't create another
             // This prevents duplicates when player stands on grid boundary
-            if (pendingTransition != null && 
-                pendingTransition.fromSegmentId == lastSegmentId && 
+            if (pendingTransition != null &&
+                pendingTransition.fromSegmentId == lastSegmentId &&
                 pendingTransition.toSegmentId == currentSegmentId) {
                 debugLog.log("[doCheck] GRID CHANGED: same as pending - skipping duplicate");
             } else {
@@ -229,27 +251,6 @@ public class PortalMarkerTracker {
             lastGridId = currentGridId;
             lastSegmentId = currentSegmentId;
             return; // Skip rest of doCheck() - portal already captured or pending
-        }
-        
-        // Capture portal from lastActions BEFORE grid change
-        NCore.LastActions lastActions = NUtils.getUI().core.getLastActions();
-        if (lastActions != null && lastActions.gob != null && lastActions.gob.ngob != null) {
-            String gobName = lastActions.gob.ngob.name.toLowerCase();
-            debugLog.log("[doCheck] lastActions.gob=" + lastActions.gob.ngob.name);
-            if (isPortalGob(gobName) && lastActions.gob.id != lastProcessedPortalGobId) {
-                debugLog.log("[doCheck] Portal CAPTURED: " + lastActions.gob.ngob.name);
-                cachedPortalGob = lastActions.gob;
-                cachedPortalLocalCoord = getGobLocalCoord(lastActions.gob);
-                
-                // Get portal's grid ID
-                if (cachedPortalLocalCoord != null) {
-                    MCache.Grid portalGrid = mcache.getgridt(cachedPortalLocalCoord.floor(MCache.tilesz));
-                    if (portalGrid != null) {
-                        cachedPortalGridId = portalGrid.id;
-                        debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId);
-                    }
-                }
-            }
         }
 
         // Update state (only if no grid change - grid change updates state before return)
