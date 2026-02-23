@@ -235,8 +235,16 @@ public class PortalMarkerTracker {
             }
         }
 
+        // Initialize lastGridId on first run
+        if (lastGridId == -1) {
+            debugLog.log("[doCheck] Initializing lastGridId=" + currentGridId);
+            lastGridId = currentGridId;
+            lastSegmentId = currentSegmentId;
+            return; // Skip grid change check on first run
+        }
+
         // Check for grid change (portal transition)
-        if (lastGridId != -1 && currentGridId != lastGridId) {
+        if (currentGridId != lastGridId) {
             // If we already have a pending transition for this exact change, don't create another
             // This prevents duplicates when player stands on grid boundary
             if (pendingTransition != null &&
@@ -257,7 +265,7 @@ public class PortalMarkerTracker {
         lastGridId = currentGridId;
         lastSegmentId = currentSegmentId;
     }
-    
+
     /**
      * Called when player's grid ID changes.
      */
