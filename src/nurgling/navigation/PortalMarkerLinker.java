@@ -363,41 +363,46 @@ public class PortalMarkerLinker {
      * @return tile coordinates for marker
      */
     private Coord computeMarkerCoordinates(Coord2d portalCoords, long segmentId) {
-        GameUI gui = NUtils.getGameUI();
-        if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
+        try {
+            GameUI gui = NUtils.getGameUI();
+            if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
+                return portalCoords.floor(MCache.tilesz);
+            }
+
+            MCache mcache = gui.map.glob.map;
+            MapFile file = getMapFile();
+            if (file == null) {
+                return portalCoords.floor(MCache.tilesz);
+            }
+
+            // Get tile coordinates
+            Coord tc = portalCoords.floor(MCache.tilesz);
+
+            // Get grid cell coordinates
+            Coord gc = tc.div(MCache.cmaps);
+
+            // Get the grid to access its info
+            MCache.Grid grid = mcache.getgridt(tc);
+            if (grid == null) {
+                return tc;
+            }
+
+            // Get GridInfo from MapFile to get segment-local origin
+            MapFile.GridInfo info = file.gridinfo.get(grid.id);
+            if (info == null) {
+                debugLog.log("[computeMarkerCoordinates] GridInfo null for grid " + grid.id + " - using tc");
+                return tc;
+            }
+
+            // Compute segment-local coordinates using vanilla formula
+            // sc = tc + (info.sc - gc) * cmaps
+            Coord sc = tc.add(info.sc.sub(gc).mul(MCache.cmaps));
+            debugLog.log("[computeMarkerCoordinates] Computed sc=" + sc + " from tc=" + tc);
+            return sc;
+        } catch (Exception e) {
+            debugLog.log("[computeMarkerCoordinates] ERROR: " + e.getMessage());
             return portalCoords.floor(MCache.tilesz);
         }
-
-        MCache mcache = gui.map.glob.map;
-        MapFile file = getMapFile();
-        if (file == null) {
-            return portalCoords.floor(MCache.tilesz);
-        }
-
-        // Get tile coordinates
-        Coord tc = portalCoords.floor(MCache.tilesz);
-
-        // Get grid cell coordinates
-        Coord gc = tc.div(MCache.cmaps);
-
-        // Get the grid to access its info
-        MCache.Grid grid = mcache.getgridt(tc);
-        if (grid == null) {
-            return tc;
-        }
-
-        // Get GridInfo from MapFile to get segment-local origin
-        MapFile.GridInfo info = file.gridinfo.get(grid.id);
-        if (info == null) {
-            // Fallback: use tile coordinates directly
-            return tc;
-        }
-
-        // Compute segment-local coordinates using vanilla formula
-        // sc = tc + (info.sc - gc) * cmaps
-        Coord sc = tc.add(info.sc.sub(gc).mul(MCache.cmaps));
-
-        return sc;
     }
     
     /**
