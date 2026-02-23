@@ -234,10 +234,20 @@ public class PortalMarkerLinker {
         
         if (inMarkerExists) {
             debugLog.log("[linkPortalMarkers] IN marker already exists - skipping creation");
-            entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+            try {
+                entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+            } catch (haven.Loading e) {
+                // Use dummy coords if Loading - marker already exists anyway
+                entranceCoords = inMarkerPosition.floor(MCache.tilesz);
+            }
             entranceMarkerId = inMarkerSegmentId ^ (entranceCoords.x * 31 + entranceCoords.y);
         } else {
-            entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+            try {
+                entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+            } catch (haven.Loading e) {
+                debugLog.log("[linkPortalMarkers] IN marker Loading: " + e.getMessage());
+                throw e; // Rethrow for retry
+            }
             debugLog.log("[linkPortalMarkers] IN marker coords: " + entranceCoords);
 
             entranceMarkerId = createMarker(
@@ -266,10 +276,20 @@ public class PortalMarkerLinker {
         
         if (outMarkerExists) {
             debugLog.log("[linkPortalMarkers] OUT marker already exists - skipping creation");
-            exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+            try {
+                exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+            } catch (haven.Loading e) {
+                // Use dummy coords if Loading - marker already exists anyway
+                exitCoords = outMarkerPosition.floor(MCache.tilesz);
+            }
             exitMarkerId = outMarkerSegmentId ^ (exitCoords.x * 31 + exitCoords.y);
         } else {
-            exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+            try {
+                exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+            } catch (haven.Loading e) {
+                debugLog.log("[linkPortalMarkers] OUT marker Loading: " + e.getMessage());
+                throw e; // Rethrow for retry
+            }
             debugLog.log("[linkPortalMarkers] OUT marker coords: " + exitCoords);
 
             exitMarkerId = createMarker(
@@ -407,25 +427,24 @@ public class PortalMarkerLinker {
      * Uses same formula as vanilla MiniMap.markobjs():
      * sc = tc + (info.sc - gc) * cmaps
      *
-     * If GridInfo is not available, falls back to raw tile coordinates.
+     * Throws Loading exception if GridInfo not available - caller should retry.
      *
      * @param portalCoords portal world coordinates
      * @param segmentId target segment ID (for GridInfo lookup)
      * @return tile coordinates for marker in segment-local space
+     * @throws haven.Loading if GridInfo not available
      */
-    private Coord computeMarkerCoordinates(Coord2d portalCoords, long segmentId) {
+    private Coord computeMarkerCoordinates(Coord2d portalCoords, long segmentId) throws haven.Loading {
         try {
             GameUI gui = NUtils.getGameUI();
             if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
-                debugLog.log("[computeMarkerCoordinates] GUI not available - using fallback");
-                return portalCoords.floor(MCache.tilesz);
+                throw new haven.Loading("GUI not available");
             }
 
             MCache mcache = gui.map.glob.map;
             MapFile file = getMapFile();
             if (file == null) {
-                debugLog.log("[computeMarkerCoordinates] MapFile not available - using fallback");
-                return portalCoords.floor(MCache.tilesz);
+                throw new haven.Loading("MapFile not available");
             }
 
             // Get tile coordinates
@@ -437,16 +456,15 @@ public class PortalMarkerLinker {
             // Get the grid to access its info
             MCache.Grid grid = mcache.getgridt(tc);
             if (grid == null) {
-                debugLog.log("[computeMarkerCoordinates] Grid not available - using fallback tc=" + tc);
-                return tc;
+                throw new haven.Loading("Grid not available for tc=" + tc);
             }
 
             // Get GridInfo from MapFile to get segment-local origin
             MapFile.GridInfo info = file.gridinfo.get(grid.id);
             if (info == null) {
-                // GridInfo not loaded yet - use fallback coordinates
-                debugLog.log("[computeMarkerCoordinates] GridInfo not available for grid " + grid.id + " - using fallback tc=" + tc);
-                return tc;
+                // GridInfo not loaded yet - throw Loading for retry
+                debugLog.log("[computeMarkerCoordinates] GridInfo not available for grid " + grid.id + " (segment " + segmentId + ") - throwing Loading");
+                throw new haven.Loading("GridInfo not available for grid " + grid.id);
             }
 
             // Compute segment-local coordinates using vanilla formula:
@@ -454,9 +472,12 @@ public class PortalMarkerLinker {
             Coord sc = tc.add(info.sc.sub(gc).mul(MCache.cmaps));
             debugLog.log("[computeMarkerCoordinates] Computed sc=" + sc + " from tc=" + tc + ", info.sc=" + info.sc + ", gc=" + gc);
             return sc;
+        } catch (haven.Loading e) {
+            // Re-throw Loading exceptions
+            throw e;
         } catch (Exception e) {
-            debugLog.log("[computeMarkerCoordinates] ERROR: " + e.getMessage() + " - using fallback");
-            return portalCoords.floor(MCache.tilesz);
+            debugLog.log("[computeMarkerCoordinates] ERROR: " + e.getMessage());
+            throw new haven.Loading("computeMarkerCoordinates failed: " + e.getMessage());
         }
     }
     
