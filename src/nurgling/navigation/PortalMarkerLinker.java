@@ -156,11 +156,12 @@ public class PortalMarkerLinker {
      * 4. Create entrance marker on source segment
      * 5. Create exit marker on destination segment
      * 6. Log all operations
-     * 
+     *
      * @param transition detected layer transition
      * @return PortalMarkerLink representing the created (or existing) link
+     * @throws haven.Loading if map data not ready (for retry)
      */
-    public PortalMarkerLink linkPortalMarkers(LayerTransition transition) {
+    public PortalMarkerLink linkPortalMarkers(LayerTransition transition) throws haven.Loading {
         debugLog.log("[linkPortalMarkers] START: " + transition);
         
         // Step 1: Generate UID from segment pair and coordinates
@@ -221,11 +222,17 @@ public class PortalMarkerLinker {
         // Create IN marker (on surface)
         String entranceName = namePrefix + " " + uid + " IN";
         long inMarkerSegmentId = "OUT".equals(direction) ? transition.toSegmentId : transition.fromSegmentId;
-        
+
         // For IN marker on surface, use player position after transition (where player appeared)
         Coord2d inMarkerPosition = "OUT".equals(direction) ? transition.playerPositionAfterTransition : transition.playerPositionAtPortal;
         debugLog.log("[linkPortalMarkers] Creating IN marker on segment=" + inMarkerSegmentId + " at " + inMarkerPosition);
-        Coord entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+        Coord entranceCoords;
+        try {
+            entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+        } catch (haven.Loading e) {
+            debugLog.log("[linkPortalMarkers] IN marker Loading: " + e.getMessage());
+            throw e; // Rethrow for retry
+        }
         debugLog.log("[linkPortalMarkers] IN marker coords: " + entranceCoords);
 
         long entranceMarkerId = createMarker(
@@ -241,11 +248,17 @@ public class PortalMarkerLinker {
         // Create OUT marker (underground)
         String exitName = namePrefix + " " + uid + " OUT";
         long outMarkerSegmentId = "OUT".equals(direction) ? transition.fromSegmentId : transition.toSegmentId;
-        
+
         // For OUT marker underground, use portal coordinates (where portal is located)
         Coord2d outMarkerPosition = transition.portalCoordinates;
         debugLog.log("[linkPortalMarkers] Creating OUT marker on segment=" + outMarkerSegmentId + " at " + outMarkerPosition);
-        Coord exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+        Coord exitCoords;
+        try {
+            exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+        } catch (haven.Loading e) {
+            debugLog.log("[linkPortalMarkers] OUT marker Loading: " + e.getMessage());
+            throw e; // Rethrow for retry
+        }
         debugLog.log("[linkPortalMarkers] OUT marker coords: " + exitCoords);
 
         long exitMarkerId = createMarker(
@@ -384,48 +397,44 @@ public class PortalMarkerLinker {
      * @param portalCoords portal world coordinates
      * @param segmentId target segment ID (for GridInfo lookup)
      * @return tile coordinates for marker in segment-local space
+     * @throws haven.Loading if GridInfo not available (for retry)
      */
-    private Coord computeMarkerCoordinates(Coord2d portalCoords, long segmentId) {
-        try {
-            GameUI gui = NUtils.getGameUI();
-            if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
-                return portalCoords.floor(MCache.tilesz);
-            }
-
-            MCache mcache = gui.map.glob.map;
-            MapFile file = getMapFile();
-            if (file == null) {
-                return portalCoords.floor(MCache.tilesz);
-            }
-
-            // Get tile coordinates
-            Coord tc = portalCoords.floor(MCache.tilesz);
-
-            // Get grid cell coordinates
-            Coord gc = tc.div(MCache.cmaps);
-
-            // Get the grid to access its info
-            MCache.Grid grid = mcache.getgridt(tc);
-            if (grid == null) {
-                return tc;
-            }
-
-            // Get GridInfo from MapFile to get segment-local origin
-            MapFile.GridInfo info = file.gridinfo.get(grid.id);
-            if (info == null) {
-                debugLog.log("[computeMarkerCoordinates] GridInfo null for grid " + grid.id + " - using tc");
-                return tc;
-            }
-
-            // Compute segment-local coordinates using vanilla formula:
-            // sc = tc + (info.sc - gc) * cmaps
-            Coord sc = tc.add(info.sc.sub(gc).mul(MCache.cmaps));
-            debugLog.log("[computeMarkerCoordinates] Computed sc=" + sc + " from tc=" + tc + ", info.sc=" + info.sc + ", gc=" + gc);
-            return sc;
-        } catch (Exception e) {
-            debugLog.log("[computeMarkerCoordinates] ERROR: " + e.getMessage());
-            return portalCoords.floor(MCache.tilesz);
+    private Coord computeMarkerCoordinates(Coord2d portalCoords, long segmentId) throws haven.Loading {
+        GameUI gui = NUtils.getGameUI();
+        if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
+            throw new haven.Loading("GUI not available");
         }
+
+        MCache mcache = gui.map.glob.map;
+        MapFile file = getMapFile();
+        if (file == null) {
+            throw new haven.Loading("MapFile not available");
+        }
+
+        // Get tile coordinates
+        Coord tc = portalCoords.floor(MCache.tilesz);
+
+        // Get grid cell coordinates
+        Coord gc = tc.div(MCache.cmaps);
+
+        // Get the grid to access its info
+        MCache.Grid grid = mcache.getgridt(tc);
+        if (grid == null) {
+            throw new haven.Loading("Grid not available");
+        }
+
+        // Get GridInfo from MapFile to get segment-local origin
+        MapFile.GridInfo info = file.gridinfo.get(grid.id);
+        if (info == null) {
+            debugLog.log("[computeMarkerCoordinates] GridInfo null for grid " + grid.id + " - throwing Loading");
+            throw new haven.Loading("GridInfo not available for grid " + grid.id);
+        }
+
+        // Compute segment-local coordinates using vanilla formula:
+        // sc = tc + (info.sc - gc) * cmaps
+        Coord sc = tc.add(info.sc.sub(gc).mul(MCache.cmaps));
+        debugLog.log("[computeMarkerCoordinates] Computed sc=" + sc + " from tc=" + tc + ", info.sc=" + info.sc + ", gc=" + gc);
+        return sc;
     }
     
     /**
