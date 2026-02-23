@@ -279,10 +279,11 @@ public class PortalMarkerTracker {
         lastProcessedTime = now;
         
         // Check if this is actually a layer transition (segments must be different)
-        if (fromSegmentId == toSegmentId) {
-            debugLog.log("[onGridChanged] Same segment - not a layer transition, skipping");
-            return;
-        }
+        // DISABLED: Cave passages may have same segment ID, but still need markers
+        // if (fromSegmentId == toSegmentId) {
+        //     debugLog.log("[onGridChanged] Same segment - not a layer transition, skipping");
+        //     return;
+        // }
         
         // Check if player landed on their hearthfire - this indicates a teleport, not a portal traversal
         if (isPlayerOnHearthfire(player)) {
