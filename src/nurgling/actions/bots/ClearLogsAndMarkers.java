@@ -4,6 +4,7 @@ import haven.*;
 import nurgling.*;
 import nurgling.actions.Action;
 import nurgling.actions.Results;
+import nurgling.navigation.PortalMarkerTracker;
 
 import java.io.File;
 
@@ -25,6 +26,9 @@ public class ClearLogsAndMarkers implements Action {
         
         // Clear map markers
         clearMarkers(gui, gameui);
+        
+        // Clear portal marker tracker state
+        clearTracker(gui);
         
         gui.msg("=== Clear Complete ===");
         return Results.SUCCESS();
@@ -78,6 +82,15 @@ public class ClearLogsAndMarkers implements Action {
             
         } catch (Exception e) {
             gui.msg("Error clearing markers: " + e.getMessage());
+        }
+    }
+    
+    private void clearTracker(NGameUI gui) {
+        try {
+            PortalMarkerTracker.clearInstance();
+            gui.msg("PortalMarkerTracker state cleared");
+        } catch (Exception e) {
+            gui.msg("Error clearing tracker: " + e.getMessage());
         }
     }
 }

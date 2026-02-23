@@ -102,6 +102,11 @@ public class PortalMarkerTracker {
     private static final long PENDING_TRANSITION_TIMEOUT_MS = 30000; // 30 seconds
     
     /**
+     * Static reference to the tracker instance (for clearing from tests).
+     */
+    private static PortalMarkerTracker instance = null;
+
+    /**
      * Tracking enabled flag.
      */
     private boolean enabled = true;
@@ -131,6 +136,35 @@ public class PortalMarkerTracker {
     public PortalMarkerTracker() {
         this.markerLinker = new PortalMarkerLinker();
         this.logger = new PortalMarkerLogger();
+        instance = this;
+    }
+    
+    /**
+     * Clear all tracker state (for testing).
+     */
+    public void clear() {
+        cachedPortalGob = null;
+        cachedPortalLocalCoord = null;
+        cachedPortalPlayerPosition = null;
+        cachedPortalGridId = -1;
+        pendingTransition = null;
+        pendingTransitionCreatedTime = 0;
+        lastProcessedFromGridId = -1;
+        lastProcessedToGridId = -1;
+        lastProcessedTime = 0;
+        lastProcessedPortalGobId = -1;
+        lastGridId = -1;
+        lastSegmentId = -1;
+        debugLog.log("[clear] Tracker state cleared");
+    }
+    
+    /**
+     * Static method to clear tracker from anywhere (for tests).
+     */
+    public static void clearInstance() {
+        if (instance != null) {
+            instance.clear();
+        }
     }
     
     /**
