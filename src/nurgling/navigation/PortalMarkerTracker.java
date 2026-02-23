@@ -91,6 +91,11 @@ public class PortalMarkerTracker {
     private haven.MapFile.GridInfo cachedPortalGridInfo = null;
     
     /**
+     * Surface portal coordinates (cached from cavein2 for use in caveout UID generation).
+     */
+    private Coord2d cachedSurfacePortalCoords = null;
+    
+    /**
      * Player position logger (logs every 500ms).
      */
     private final PlayerPositionLogger positionLogger = new PlayerPositionLogger();
@@ -149,6 +154,7 @@ public class PortalMarkerTracker {
         cachedPortalPlayerPosition = null;
         cachedPortalGridId = -1;
         cachedPortalGridInfo = null;
+        cachedSurfacePortalCoords = null;
         pendingTransition = null;
         pendingTransitionCreatedTime = 0;
         lastProcessedFromGridId = -1;
@@ -296,6 +302,12 @@ public class PortalMarkerTracker {
                                 cachedPortalGridInfo = gui.mapfile.file.gridinfo.get(portalGrid.id);
                                 if (cachedPortalGridInfo != null) {
                                     debugLog.log("[doCheck] Portal GridInfo captured: seg=" + cachedPortalGridInfo.seg + ", sc=" + cachedPortalGridInfo.sc);
+                                    
+                                    // Cache surface portal coordinates for UID generation (used for both IN and OUT)
+                                    if (cachedSurfacePortalCoords == null) {
+                                        cachedSurfacePortalCoords = cachedPortalLocalCoord;
+                                        debugLog.log("[doCheck] Cached surface portal coords: " + cachedSurfacePortalCoords);
+                                    }
                                 } else {
                                     debugLog.log("[doCheck] Portal GridInfo not available yet");
                                 }
@@ -395,10 +407,12 @@ public class PortalMarkerTracker {
             // Determine portal name from direction
             // OUT direction = exiting cave = caveout
             // IN direction = entering cave = cavein
-            String direction = PortalName.getDirection(fromSegmentId, toSegmentId, null);
-            portalName = "OUT".equals(direction) ? "gfx/tiles/ridges/caveout" : "gfx/tiles/ridges/cavein2";
+            portalName = "gfx/tiles/ridges/cavein2"; // Default to cavein
         }
         debugLog.log("[onGridChanged] portalName=" + portalName);
+        
+        // Determine direction for coord caching
+        String direction = PortalName.getDirection(fromSegmentId, toSegmentId, portalName);
         
         // Exclude cellar from marking
         if (portalName.toLowerCase().contains("cellar")) {
@@ -426,15 +440,25 @@ public class PortalMarkerTracker {
         }
 
         // Create layer transition with player position at time of portal click
+        // Use cached surface portal coords for UID generation (ensures same UID for cavein2/caveout pair)
+        Coord2d uidCoords = cachedSurfacePortalCoords != null ? cachedSurfacePortalCoords : portalCoords;
         LayerTransition transition = new LayerTransition(
             fromSegmentId,
             toSegmentId,
-            portalCoords,
+            uidCoords,  // Use surface coords for UID generation
             portalName,
             playerPosAtPortal, // Player position when portal was clicked (for IN marker)
             player.rc,         // Player position after transition (for OUT marker)
             cachedPortalGridInfo // Portal GridInfo captured before transition
         );
+        debugLog.log("[onGridChanged] Using UID coords: " + uidCoords + " (from " + (cachedSurfacePortalCoords != null ? "cached surface" : "portal") + ")");
+        
+        // Clear cached surface coords after caveout (exiting to surface)
+        // This ensures next cave will have fresh coords
+        if ("OUT".equals(direction)) {
+            debugLog.log("[onGridChanged] Clearing cached surface coords after caveout");
+            cachedSurfacePortalCoords = null;
+        }
         
         // Log transition
         logger.logTransition(fromSegmentId, toSegmentId, portalCoords, portalName);
@@ -464,6 +488,7 @@ public class PortalMarkerTracker {
         cachedPortalPlayerPosition = null;
         cachedPortalGridId = -1;
         cachedPortalGridInfo = null;
+        // Don't clear cachedSurfacePortalCoords - keep it for caveout transition
     }
     
     /**

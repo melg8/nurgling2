@@ -166,30 +166,20 @@ public class PortalMarkerLinker {
 
         // Step 1: Generate UID from segment pair and coordinates
         // IMPORTANT: Use surface coordinates for UID generation to ensure same UID for both directions!
-        // - For cave transitions: use portalCoordinates (portal gob is on surface for cavein2)
-        // - playerPositionAtPortal may be captured AFTER transition (underground)!
-
+        // - transition.portalCoordinates now contains surface coords (cached from cavein2)
+        // - This ensures cavein2 and caveout generate the same UID
+        
         String direction = PortalName.getDirection(
             transition.fromSegmentId,
             transition.toSegmentId,
             transition.portalName
         );
-
-        // Use surface coordinates for UID generation
-        Coord2d uidCoords;
-        if ("IN".equals(direction)) {
-            // Entering cave: use portalCoordinates (portal gob is on surface)
-            // playerPositionAtPortal may be underground if captured after transition
-            uidCoords = transition.portalCoordinates != null ? 
-                transition.portalCoordinates : transition.playerPositionAtPortal;
-        } else {
-            // Exiting cave: player is on surface at playerPositionAfterTransition
-            uidCoords = transition.playerPositionAfterTransition;
-        }
-
-        debugLog.log("[linkPortalMarkers] Using UID coords: (" +
-            (uidCoords != null ? uidCoords.x + "," + uidCoords.y : "null") + ") from " +
-            ("IN".equals(direction) ? "portalCoordinates" : "playerPositionAfterTransition"));
+        
+        // Use portalCoordinates from transition (already set to surface coords by PortalMarkerTracker)
+        Coord2d uidCoords = transition.portalCoordinates;
+        
+        debugLog.log("[linkPortalMarkers] Using UID coords: (" + 
+            (uidCoords != null ? uidCoords.x + "," + uidCoords.y : "null") + ") from transition.portalCoordinates");
         
         String uid = uidGenerator.generate(
             transition.fromSegmentId,
@@ -252,18 +242,15 @@ public class PortalMarkerLinker {
         long inMarkerSegmentId = "OUT".equals(direction) ? transition.toSegmentId : transition.fromSegmentId;
 
         // For IN marker on surface:
-        // - If direction=IN (entering cave): Use portalCoordinates (portal gob is on surface)
-        //   IMPORTANT: playerPositionAtPortal may be captured AFTER transition (underground)!
-        // - If direction=OUT (exiting cave): player is on surface at playerPositionAfterTransition
+        // - If direction=IN (entering cave): use surface coords from transition.portalCoordinates
+        // - If direction=OUT (exiting cave): use playerPositionAfterTransition (surface)
         Coord2d inMarkerPosition;
         if ("OUT".equals(direction)) {
             // Exiting cave: player is on surface after transition
             inMarkerPosition = transition.playerPositionAfterTransition;
         } else {
-            // Entering cave: portal gob is on surface, use portal coordinates
-            // playerPositionAtPortal may be underground if captured after transition
-            inMarkerPosition = transition.portalCoordinates != null ? 
-                transition.portalCoordinates : transition.playerPositionAtPortal;
+            // Entering cave: use surface portal coords
+            inMarkerPosition = transition.portalCoordinates;
         }
         debugLog.log("[linkPortalMarkers] Creating IN marker on segment=" + inMarkerSegmentId + " at " + inMarkerPosition);
 
@@ -309,15 +296,13 @@ public class PortalMarkerLinker {
         long outMarkerSegmentId = "OUT".equals(direction) ? transition.fromSegmentId : transition.toSegmentId;
 
         // For OUT marker underground:
-        // - If direction=IN (entering cave): player is underground at playerPositionAfterTransition
-        // - If direction=OUT (exiting cave): Use portalCoordinates (caveout portal is underground)
-        //   IMPORTANT: playerPositionAtPortal may be captured AFTER transition (on surface)!
+        // - If direction=IN (entering cave): use playerPositionAfterTransition (underground)
+        // - If direction=OUT (exiting cave): use underground portal coords
+        //   We need to find underground portal coords - use playerPositionAtPortal if underground
         Coord2d outMarkerPosition;
         if ("OUT".equals(direction)) {
-            // Exiting cave: caveout portal gob is underground, use portal coordinates
-            // playerPositionAtPortal may be on surface if captured after transition
-            outMarkerPosition = transition.portalCoordinates != null ? 
-                transition.portalCoordinates : transition.playerPositionAtPortal;
+            // Exiting cave: use player position before transition (underground)
+            outMarkerPosition = transition.playerPositionAtPortal;
         } else {
             // Entering cave: player is underground after transition
             outMarkerPosition = transition.playerPositionAfterTransition;
