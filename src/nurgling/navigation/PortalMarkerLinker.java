@@ -226,21 +226,32 @@ public class PortalMarkerLinker {
         // For IN marker on surface, use player position after transition (where player appeared)
         Coord2d inMarkerPosition = "OUT".equals(direction) ? transition.playerPositionAfterTransition : transition.playerPositionAtPortal;
         debugLog.log("[linkPortalMarkers] Creating IN marker on segment=" + inMarkerSegmentId + " at " + inMarkerPosition);
+        
+        // Check if IN marker already exists
+        boolean inMarkerExists = markerExists(inMarkerSegmentId, entranceName);
+        long entranceMarkerId;
         Coord entranceCoords;
-        try {
+        
+        if (inMarkerExists) {
+            debugLog.log("[linkPortalMarkers] IN marker already exists - skipping creation");
             entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
-        } catch (haven.Loading e) {
-            debugLog.log("[linkPortalMarkers] IN marker Loading: " + e.getMessage());
-            throw e; // Rethrow for retry
-        }
-        debugLog.log("[linkPortalMarkers] IN marker coords: " + entranceCoords);
+            entranceMarkerId = inMarkerSegmentId ^ (entranceCoords.x * 31 + entranceCoords.y);
+        } else {
+            try {
+                entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+            } catch (haven.Loading e) {
+                debugLog.log("[linkPortalMarkers] IN marker Loading: " + e.getMessage());
+                throw e; // Rethrow for retry
+            }
+            debugLog.log("[linkPortalMarkers] IN marker coords: " + entranceCoords);
 
-        long entranceMarkerId = createMarker(
-            inMarkerSegmentId,
-            entranceCoords,
-            entranceName,
-            DEFAULT_MARKER_COLOR
-        );
+            entranceMarkerId = createMarker(
+                inMarkerSegmentId,
+                entranceCoords,
+                entranceName,
+                DEFAULT_MARKER_COLOR
+            );
+        }
         debugLog.log("[linkPortalMarkers] Entrance marker ID: " + entranceMarkerId);
 
         logger.logMarkerCreated(uid, "IN", inMarkerSegmentId, entranceCoords, entranceName);
@@ -252,21 +263,32 @@ public class PortalMarkerLinker {
         // For OUT marker underground, use portal coordinates (where portal is located)
         Coord2d outMarkerPosition = transition.portalCoordinates;
         debugLog.log("[linkPortalMarkers] Creating OUT marker on segment=" + outMarkerSegmentId + " at " + outMarkerPosition);
+        
+        // Check if OUT marker already exists
+        boolean outMarkerExists = markerExists(outMarkerSegmentId, exitName);
+        long exitMarkerId;
         Coord exitCoords;
-        try {
+        
+        if (outMarkerExists) {
+            debugLog.log("[linkPortalMarkers] OUT marker already exists - skipping creation");
             exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
-        } catch (haven.Loading e) {
-            debugLog.log("[linkPortalMarkers] OUT marker Loading: " + e.getMessage());
-            throw e; // Rethrow for retry
-        }
-        debugLog.log("[linkPortalMarkers] OUT marker coords: " + exitCoords);
+            exitMarkerId = outMarkerSegmentId ^ (exitCoords.x * 31 + exitCoords.y);
+        } else {
+            try {
+                exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+            } catch (haven.Loading e) {
+                debugLog.log("[linkPortalMarkers] OUT marker Loading: " + e.getMessage());
+                throw e; // Rethrow for retry
+            }
+            debugLog.log("[linkPortalMarkers] OUT marker coords: " + exitCoords);
 
-        long exitMarkerId = createMarker(
-            outMarkerSegmentId,
-            exitCoords,
-            exitName,
-            DEFAULT_MARKER_COLOR
-        );
+            exitMarkerId = createMarker(
+                outMarkerSegmentId,
+                exitCoords,
+                exitName,
+                DEFAULT_MARKER_COLOR
+            );
+        }
         debugLog.log("[linkPortalMarkers] Exit marker ID: " + exitMarkerId);
 
         logger.logMarkerCreated(uid, "OUT", outMarkerSegmentId, exitCoords, exitName);
@@ -312,28 +334,29 @@ public class PortalMarkerLinker {
                 })
                 .collect(Collectors.toList());
 
-            if (!markers.isEmpty()) {
-                // Found existing markers with this UID
-                // For SMarker, use oid as ID; for PMarker, use hash
-                long entranceId = markers.get(0) instanceof MapFile.SMarker 
-                    ? ((MapFile.SMarker)markers.get(0)).oid 
+            // Only return existing link if BOTH markers exist (IN and OUT)
+            if (markers.size() >= 2) {
+                // Found complete link with both markers
+                long entranceId = markers.get(0) instanceof MapFile.SMarker
+                    ? ((MapFile.SMarker)markers.get(0)).oid
                     : markers.get(0).hashCode();
-                long exitId = markers.size() > 1 
-                    ? (markers.get(1) instanceof MapFile.SMarker 
-                        ? ((MapFile.SMarker)markers.get(1)).oid 
-                        : markers.get(1).hashCode())
-                    : -1;
-                    
+                long exitId = markers.get(1) instanceof MapFile.SMarker
+                    ? ((MapFile.SMarker)markers.get(1)).oid
+                    : markers.get(1).hashCode();
+
                 return Optional.of(new PortalMarkerLink(
                     uid,
                     "unknown",
                     entranceId, segmentId, markers.get(0).tc,
-                    exitId, segmentId, 
-                    markers.size() > 1 ? markers.get(1).tc : null
+                    exitId, segmentId,
+                    markers.get(1).tc
                 ));
+            } else if (markers.size() == 1) {
+                // Only one marker exists - link is incomplete, don't skip
+                debugLog.log("[findExistingLink] Only 1 marker found for UID " + uid + " - link incomplete, will create missing marker");
             }
         } catch (Exception e) {
-            logger.logMarkerError("FIND_LINK_ERROR", 
+            logger.logMarkerError("FIND_LINK_ERROR",
                 "segment=" + segmentId + ", uid=" + uid + ", error=" + e.getMessage());
         }
 
@@ -437,6 +460,29 @@ public class PortalMarkerLinker {
         return sc;
     }
     
+    /**
+     * Checks if a marker with the given name exists on the specified segment.
+     *
+     * @param segmentId segment to search
+     * @param markerName marker name to find
+     * @return true if marker exists
+     */
+    private boolean markerExists(long segmentId, String markerName) {
+        try {
+            MapFile file = getMapFile();
+            if (file == null || file.markers == null) {
+                return false;
+            }
+
+            return file.markers.stream()
+                .filter(m -> m.seg == segmentId)
+                .filter(m -> m.nm != null)
+                .anyMatch(m -> m.nm.equals(markerName));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /**
      * Checks if a marker name follows the linked marker format.
      * 
