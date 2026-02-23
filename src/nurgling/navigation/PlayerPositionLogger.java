@@ -57,15 +57,7 @@ public class PlayerPositionLogger {
             // Get tile coordinates
             Coord tc = playerRC.floor(MCache.tilesz);
             
-            // Check if position changed significantly
-            if (lastSegmentId != null && lastSegmentId.equals(segmentId) &&
-                lastGridId != null && lastGridId.equals(gridId) &&
-                lastPosition != null && Math.abs(lastPosition.x - playerRC.x) < 10 && 
-                Math.abs(lastPosition.y - playerRC.y) < 10) {
-                return; // Skip if position hasn't changed much
-            }
-            
-            // Update last position
+            // Update last position (always log, don't skip)
             lastSegmentId = segmentId;
             lastGridId = gridId;
             lastPosition = playerRC;
