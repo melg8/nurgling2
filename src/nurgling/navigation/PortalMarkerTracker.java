@@ -174,7 +174,7 @@ public class PortalMarkerTracker {
     public void tick() {
         // Log player position every 500ms
         positionLogger.tick();
-        
+
         // Check config
         Object enabledObj = NConfig.get(NConfig.Key.portalMarkerAutoCreate);
         boolean configEnabled = (enabledObj instanceof Boolean) && (Boolean) enabledObj;
@@ -195,6 +195,27 @@ public class PortalMarkerTracker {
         debugLog.log("[tick] calling doCheck()");
 
         try {
+            // First, try to process any pending transition (retry if MapFile was not available)
+            if (pendingTransition != null) {
+                debugLog.log("[tick] Processing pending transition...");
+                if (now - pendingTransitionCreatedTime > PENDING_TRANSITION_TIMEOUT_MS) {
+                    debugLog.log("[tick] Pending transition timeout - giving up");
+                    pendingTransition = null;
+                } else {
+                    try {
+                        PortalMarkerLink link = markerLinker.linkPortalMarkers(pendingTransition);
+                        debugLog.log("[tick] Pending transition succeeded: " + link);
+                        pendingTransition = null;
+                    } catch (haven.Loading e) {
+                        debugLog.log("[tick] Pending transition still Loading: " + e.getMessage());
+                        // Keep pending for next retry
+                    } catch (Exception e) {
+                        debugLog.log("[tick] Pending transition failed: " + e.getMessage());
+                        pendingTransition = null;
+                    }
+                }
+            }
+            
             doCheck();
         } catch (Exception e) {
             debugLog.log("[tick] ERROR: " + e.getMessage());
