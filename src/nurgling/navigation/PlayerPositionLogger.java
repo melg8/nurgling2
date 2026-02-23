@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.io.File;
 
 /**
  * Logs player position with segment, grid, and coordinates every 500ms.
@@ -14,7 +15,7 @@ import java.util.Date;
  */
 public class PlayerPositionLogger {
     private static final long LOG_INTERVAL_MS = 500;
-    private static final String LOG_FILE = "bin\\logs\\player_position.log";
+    private static String LOG_FILE = null; // Will be set to absolute path
     
     private long lastLogTime = 0;
     private PrintWriter writer = null;
@@ -31,15 +32,50 @@ public class PlayerPositionLogger {
         lastLogTime = now;
         
         try {
+            // Initialize LOG_FILE with absolute path
+            if (LOG_FILE == null) {
+                // Try to find project root by looking for build.xml
+                String userDir = System.getProperty("user.dir");
+                File buildFile = new File(userDir + "\\build.xml");
+                if (!buildFile.exists()) {
+                    // We're probably in bin\ directory, go up one level
+                    userDir = new File(userDir).getParent();
+                }
+                LOG_FILE = userDir + "\\bin\\logs\\player_position.log";
+                System.out.println("[PlayerPositionLogger] LOG_FILE = " + LOG_FILE);
+            }
+            
+            System.out.println("[PlayerPositionLogger] tick() called");
+        
             GameUI gui = NUtils.getGameUI();
-            if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
+            if (gui == null) {
+                System.out.println("[PlayerPositionLogger] gui is null");
+                return;
+            }
+            if (gui.map == null) {
+                System.out.println("[PlayerPositionLogger] gui.map is null");
+                return;
+            }
+            if (gui.map.glob == null) {
+                System.out.println("[PlayerPositionLogger] gui.map.glob is null");
+                return;
+            }
+            if (gui.map.glob.map == null) {
+                System.out.println("[PlayerPositionLogger] gui.map.glob.map is null");
                 return;
             }
             
             Gob player = NUtils.player();
-            if (player == null || player.rc == null) {
+            if (player == null) {
+                System.out.println("[PlayerPositionLogger] player is null");
                 return;
             }
+            if (player.rc == null) {
+                System.out.println("[PlayerPositionLogger] player.rc is null");
+                return;
+            }
+            
+            System.out.println("[PlayerPositionLogger] Writing to " + LOG_FILE);
             
             MCache mcache = gui.map.glob.map;
             Coord2d playerRC = player.rc;
@@ -62,22 +98,34 @@ public class PlayerPositionLogger {
             lastGridId = gridId;
             lastPosition = playerRC;
             
+            // Ensure log directory exists
+            File logDir = new File("bin\\logs");
+            if (!logDir.exists()) {
+                System.out.println("[PlayerPositionLogger] Creating directory bin\\logs, exists=" + logDir.exists() + ", absolute=" + logDir.getAbsolutePath());
+                logDir.mkdirs();
+            }
+            
             // Write to log
             if (writer == null) {
+                System.out.println("[PlayerPositionLogger] Creating writer for " + LOG_FILE + ", absolute=" + new File(LOG_FILE).getAbsolutePath());
                 writer = new PrintWriter(new FileWriter(LOG_FILE, true));
+                writer.println("=== Player Position Log (started " + new Date() + ") ===");
             }
             
             SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss.SSS");
             String timestamp = sdf.format(new Date());
             
-            String line = String.format("[%s] segment=%d, grid=%d, pos=(%.1f,%.1f), tc=(%d,%d)%n",
+            String line = String.format("[%s] segment=%d, grid=%d, pos=(%.1f,%.1f), tc=(%d,%d)",
                 timestamp, segmentId, gridId, playerRC.x, playerRC.y, tc.x, tc.y);
             
-            writer.write(line);
+            writer.println(line);
             writer.flush();
+            System.out.println("[PlayerPositionLogger] Logged: " + line);
             
         } catch (Exception e) {
-            // Ignore logging errors
+            // Log error to console for debugging
+            System.out.println("[PlayerPositionLogger] ERROR: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     

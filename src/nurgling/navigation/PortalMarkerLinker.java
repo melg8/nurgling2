@@ -205,6 +205,10 @@ public class PortalMarkerLinker {
         // Direction tells us which way player is moving:
         // - "IN" = entering cave (from surface to underground)
         // - "OUT" = exiting cave (from underground to surface)
+        //
+        // IMPORTANT: Use DIFFERENT coordinates for IN and OUT markers!
+        // - IN marker (surface): use player position AFTER transition (where player appeared)
+        // - OUT marker (underground): use portal coordinates (where portal is located)
         
         debugLog.log("[linkPortalMarkers] direction=" + direction);
         debugLog.log("[linkPortalMarkers] portalCoordinates=(" + 
@@ -213,34 +217,13 @@ public class PortalMarkerLinker {
             (transition.playerPositionAtPortal != null ? transition.playerPositionAtPortal.x + "," + transition.playerPositionAtPortal.y : "null") + ")");
         debugLog.log("[linkPortalMarkers] playerPositionAfterTransition=(" + 
             (transition.playerPositionAfterTransition != null ? transition.playerPositionAfterTransition.x + "," + transition.playerPositionAfterTransition.y : "null") + ")");
-
-        long inMarkerSegmentId, outMarkerSegmentId;
-        Coord2d inMarkerPosition, outMarkerPosition;
-        
-        if ("OUT".equals(direction)) {
-            // Exiting cave (caveout): from=underground, to=surface
-            // IN marker goes on surface (where player exited TO)
-            // OUT marker goes underground (where player exited FROM)
-            // Use player position after transition for IN (surface)
-            // Use portal coordinates for OUT (underground - portal is at same world position)
-            inMarkerSegmentId = transition.toSegmentId;
-            inMarkerPosition = transition.playerPositionAfterTransition;
-            outMarkerSegmentId = transition.fromSegmentId;
-            outMarkerPosition = transition.portalCoordinates;
-        } else {
-            // Entering cave (cavein) or unknown: from=surface, to=underground
-            // IN marker goes on surface (where player entered FROM)
-            // OUT marker goes underground (where player entered TO)
-            // Use player position at portal for IN (surface)
-            // Use player position after transition for OUT (underground)
-            inMarkerSegmentId = transition.fromSegmentId;
-            inMarkerPosition = transition.playerPositionAtPortal;
-            outMarkerSegmentId = transition.toSegmentId;
-            outMarkerPosition = transition.playerPositionAfterTransition;
-        }
         
         // Create IN marker (on surface)
         String entranceName = namePrefix + " " + uid + " IN";
+        long inMarkerSegmentId = "OUT".equals(direction) ? transition.toSegmentId : transition.fromSegmentId;
+        
+        // For IN marker on surface, use player position after transition (where player appeared)
+        Coord2d inMarkerPosition = "OUT".equals(direction) ? transition.playerPositionAfterTransition : transition.playerPositionAtPortal;
         debugLog.log("[linkPortalMarkers] Creating IN marker on segment=" + inMarkerSegmentId + " at " + inMarkerPosition);
         Coord entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
         debugLog.log("[linkPortalMarkers] IN marker coords: " + entranceCoords);
@@ -257,6 +240,10 @@ public class PortalMarkerLinker {
 
         // Create OUT marker (underground)
         String exitName = namePrefix + " " + uid + " OUT";
+        long outMarkerSegmentId = "OUT".equals(direction) ? transition.fromSegmentId : transition.toSegmentId;
+        
+        // For OUT marker underground, use portal coordinates (where portal is located)
+        Coord2d outMarkerPosition = transition.portalCoordinates;
         debugLog.log("[linkPortalMarkers] Creating OUT marker on segment=" + outMarkerSegmentId + " at " + outMarkerPosition);
         Coord exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
         debugLog.log("[linkPortalMarkers] OUT marker coords: " + exitCoords);
