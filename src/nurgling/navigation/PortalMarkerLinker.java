@@ -163,7 +163,7 @@ public class PortalMarkerLinker {
      */
     public PortalMarkerLink linkPortalMarkers(LayerTransition transition) throws haven.Loading {
         debugLog.log("[linkPortalMarkers] START: " + transition);
-        
+
         // Step 1: Generate UID from segment pair and coordinates
         String uid = uidGenerator.generate(
             transition.fromSegmentId,
@@ -175,7 +175,14 @@ public class PortalMarkerLinker {
         debugLog.log("[linkPortalMarkers] UID generated: " + uid + " (xorSegment=" + xorSegment + ")");
         logger.logUidGeneration(xorSegment, transition.portalCoordinates, uid);
 
-        // Step 2: Check for existing markers with same UID
+        // Step 2: Get MapFile
+        MapFile file = getMapFile();
+        if (file == null) {
+            debugLog.log("[linkPortalMarkers] MapFile not available - throwing Loading");
+            throw new haven.Loading("Waiting for map data...");
+        }
+
+        // Step 3: Check for existing markers with same UID
         Optional<PortalMarkerLink> existing = findExistingLink(
             transition.toSegmentId,
             uid
@@ -463,7 +470,7 @@ public class PortalMarkerLinker {
             MapFile.GridInfo info = file.gridinfo.get(grid.id);
             if (info == null) {
                 // GridInfo not loaded yet - throw Loading for retry
-                debugLog.log("[computeMarkerCoordinates] GridInfo not available for grid " + grid.id + " (segment " + segmentId + ") - throwing Loading");
+                debugLog.log("[computeMarkerCoordinates] GridInfo returned null for grid " + grid.id + " (segment " + segmentId + ") - throwing Loading");
                 throw new haven.Loading("GridInfo not available for grid " + grid.id);
             }
 
@@ -481,6 +488,26 @@ public class PortalMarkerLinker {
         }
     }
     
+    /**
+     * Pre-loads GridInfo for a segment to ensure it's available.
+     *
+     * @param file MapFile to load from
+     * @param segmentId segment ID to find
+     * @return Loading exception if not available, null if loaded
+     */
+    private haven.Loading preloadGridInfo(MapFile file, long segmentId) {
+        try {
+            // GridInfo is keyed by grid ID, not segment ID
+            // We need to iterate through known grids to find ones for this segment
+            // For now, just return null - GridInfo will be loaded on demand in computeMarkerCoordinates
+            // The retry mechanism will handle cases where it's not available yet
+            debugLog.log("[preloadGridInfo] Skipping preload for segment " + segmentId + " - will load on demand");
+            return null;
+        } catch (Exception e) {
+            return new haven.Loading("preloadGridInfo failed: " + e.getMessage());
+        }
+    }
+
     /**
      * Checks if a marker with the given name exists on the specified segment.
      *

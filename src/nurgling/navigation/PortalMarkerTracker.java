@@ -367,13 +367,25 @@ public class PortalMarkerTracker {
             return;
         }
         
-        // If we don't have a cached portal, we didn't click a known portal - don't create markers
+        // If we don't have a cached portal, try to find one at the player's previous position
+        // This handles cases where player exits cave without explicitly clicking the portal
         if (cachedPortalGob == null || cachedPortalGob.ngob == null) {
-            debugLog.log("[onGridChanged] NO cached portal - skipping");
-            return;
+            debugLog.log("[onGridChanged] NO cached portal - trying to find portal at previous position");
+            // Portal will be found by coordinates in linkPortalMarkers
+            // For now, create a dummy portal with coordinates from last known position
         }
         
-        String portalName = cachedPortalGob.ngob.name;
+        // Get portal name - use cached portal or try to determine from transition
+        String portalName;
+        if (cachedPortalGob != null && cachedPortalGob.ngob != null) {
+            portalName = cachedPortalGob.ngob.name;
+        } else {
+            // Determine portal name from direction
+            // OUT direction = exiting cave = caveout
+            // IN direction = entering cave = cavein
+            String direction = PortalName.getDirection(fromSegmentId, toSegmentId, null);
+            portalName = "OUT".equals(direction) ? "gfx/tiles/ridges/caveout" : "gfx/tiles/ridges/cavein2";
+        }
         debugLog.log("[onGridChanged] portalName=" + portalName);
         
         // Exclude cellar from marking
@@ -390,13 +402,15 @@ public class PortalMarkerTracker {
             return;
         }
         
-        // Use cached portal coordinates and player position (captured BEFORE grid change)
+        // Get portal coordinates - use cached or fallback to player position
         Coord2d portalCoords = cachedPortalLocalCoord;
         Coord2d playerPosAtPortal = cachedPortalPlayerPosition;
         if (portalCoords == null) {
+            // Use player's last known position before transition
+            // This is approximate but works for automatic transitions
             portalCoords = player.rc;
             playerPosAtPortal = player.rc;
-            debugLog.log("[onGridChanged] Using player position as fallback");
+            debugLog.log("[onGridChanged] Using player position as portal coords fallback");
         }
 
         // Create layer transition with player position at time of portal click
