@@ -132,16 +132,11 @@ public class PortalMarkerTracker {
      * Should be called from NMapView.tick() or NCore.tick().
      */
     public void tick() {
-        debugLog.log("[tick] START");
-        
         // Check config
         Object enabledObj = NConfig.get(NConfig.Key.portalMarkerAutoCreate);
         boolean configEnabled = (enabledObj instanceof Boolean) && (Boolean) enabledObj;
         
-        debugLog.log("[tick] config: portalMarkerAutoCreate=" + configEnabled + ", enabled=" + enabled);
-        
         if (!enabled || !configEnabled) {
-            debugLog.log("[tick] DISABLED - returning");
             return;
         }
         
@@ -181,37 +176,30 @@ public class PortalMarkerTracker {
      * Main check logic.
      */
     private void doCheck() {
-        debugLog.log("[doCheck] START");
-        
         GameUI gui = NUtils.getGameUI();
         if (gui == null || gui.map == null) {
-            debugLog.log("[doCheck] gui or map is null");
             return;
         }
         
         Gob player = NUtils.player();
         if (player == null) {
-            debugLog.log("[doCheck] player is null");
             return;
         }
         
         // Get current grid ID from MCache
         MCache mcache = gui.map.glob.map;
         if (mcache == null) {
-            debugLog.log("[doCheck] mcache is null");
             return;
         }
         
         Coord2d playerRC = player.rc;
         if (playerRC == null) {
-            debugLog.log("[doCheck] playerRC is null");
             return;
         }
         
         // Get current grid
         MCache.Grid currentGrid = mcache.getgridt(playerRC.floor(MCache.tilesz));
         if (currentGrid == null) {
-            debugLog.log("[doCheck] currentGrid is null");
             return;
         }
         
@@ -280,7 +268,7 @@ public class PortalMarkerTracker {
         
         // Check if this is actually a layer transition (segments must be different)
         if (fromSegmentId == toSegmentId) {
-            debugLog.log("[onGridChanged] Same segment (fromSeg=" + fromSegmentId + ") - not a layer transition, skipping");
+            debugLog.log("[onGridChanged] Same segment - not a layer transition, skipping");
             return;
         }
         
@@ -318,7 +306,7 @@ public class PortalMarkerTracker {
         // Use cached portal coordinates (captured BEFORE grid change)
         Coord2d portalCoords = cachedPortalLocalCoord;
         if (portalCoords == null) {
-            portalCoords = player.rc; // Fallback to player position
+            portalCoords = player.rc;
             debugLog.log("[onGridChanged] Using player position as fallback");
         }
         
@@ -345,7 +333,7 @@ public class PortalMarkerTracker {
             
         } catch (Exception e) {
             String errorMsg = e.getMessage();
-            debugLog.log("[onGridChanged] ERROR creating link: " + errorMsg);
+            debugLog.log("[onGridChanged] ERROR: " + errorMsg);
             e.printStackTrace();
             logger.logMarkerError("LINK_PORTAL_MARKERS_FAILED", 
                 "transition=" + transition + ", error=" + e.getMessage());

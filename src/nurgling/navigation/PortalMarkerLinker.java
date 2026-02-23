@@ -128,21 +128,18 @@ public class PortalMarkerLinker {
             try {
                 GameUI gui = NUtils.getGameUI();
                 if (gui == null) {
-                    debugLog.log("[getMapFile] GameUI is null");
                     return null;
                 }
                 if (gui.mapfile == null) {
-                    debugLog.log("[getMapFile] gui.mapfile is null");
                     return null;
                 }
                 if (gui.mapfile.file == null) {
-                    debugLog.log("[getMapFile] gui.mapfile.file is null");
                     return null;
                 }
                 mapFile = gui.mapfile.file;
-                debugLog.log("[getMapFile] MapFile obtained successfully");
+                debugLog.log("[getMapFile] OK");
             } catch (Exception e) {
-                debugLog.log("[getMapFile] Exception: " + e.getClass().getName() + ": " + e.getMessage());
+                debugLog.log("[getMapFile] ERROR: " + e.getClass().getSimpleName());
                 logger.logMarkerError("GET_MAPFILE_FAILED", "error=" + e.getMessage());
             }
         }
@@ -203,7 +200,6 @@ public class PortalMarkerLinker {
         debugLog.log("[linkPortalMarkers] namePrefix=" + namePrefix + ", icon=" + iconName);
 
         // Step 5: Create entrance marker (IN direction)
-        // Entrance is on the fromSegment (where player was before transition)
         String entranceName = namePrefix + " " + uid + " IN";
         Coord entranceCoords = computeMarkerCoordinates(
             transition.portalCoordinates,
@@ -222,7 +218,6 @@ public class PortalMarkerLinker {
         logger.logMarkerCreated(uid, "IN", transition.fromSegmentId, entranceCoords, entranceName);
 
         // Step 6: Create exit marker (OUT direction)
-        // Exit is on the toSegment (where player appeared after transition)
         String exitName = namePrefix + " " + uid + " OUT";
         Coord exitCoords = computeMarkerCoordinates(
             transition.portalCoordinates,
@@ -323,32 +318,23 @@ public class PortalMarkerLinker {
         try {
             MapFile file = getMapFile();
             if (file == null) {
-                debugLog.log("[createMarker] MapFile is null - cannot create marker: " + name);
                 throw new RuntimeException("MapFile not available");
             }
             
-            debugLog.log("[createMarker] Creating marker: " + name + " on segment=" + segmentId + " at " + coords);
+            debugLog.log("[createMarker] " + name + " segment=" + segmentId + " at " + coords);
 
-            // Create SMarker (system marker) like the vanilla cave passage system
-            // Use cave icon resource for the marker
+            // Create SMarker (system marker)
             String iconResource = PortalName.getIconName(null, "IN");
             Resource.Saved res = new Resource.Saved(Resource.remote(), iconResource, 0);
 
-            // Create SMarker with oid=0 (new marker)
             MapFile.SMarker marker = new MapFile.SMarker(segmentId, coords, name, 0, res);
 
-            // Add marker to MapFile
             if (file.markers != null) {
                 file.add(marker);
-                debugLog.log("[createMarker] Marker added to MapFile: " + name);
-            } else {
-                debugLog.log("[createMarker] file.markers is null - marker may not persist");
+                debugLog.log("[createMarker] Marker added: " + name);
             }
 
-            // Return pseudo-ID (segment XOR coordinates)
-            long pseudoId = segmentId ^ (coords.x * 31 + coords.y);
-            debugLog.log("[createMarker] Marker created with pseudoId=" + pseudoId);
-            return pseudoId;
+            return segmentId ^ (coords.x * 31 + coords.y);
 
         } catch (Exception e) {
             debugLog.log("[createMarker] ERROR: " + e.getMessage());
