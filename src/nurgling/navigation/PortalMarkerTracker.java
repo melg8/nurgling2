@@ -135,36 +135,23 @@ public class PortalMarkerTracker {
         // Check config
         Object enabledObj = NConfig.get(NConfig.Key.portalMarkerAutoCreate);
         boolean configEnabled = (enabledObj instanceof Boolean) && (Boolean) enabledObj;
-        
+
+        debugLog.log("[tick] enabled=" + enabled + ", configEnabled=" + configEnabled);
+
         if (!enabled || !configEnabled) {
+            debugLog.log("[tick] DISABLED - returning");
             return;
         }
-        
+
         long now = System.currentTimeMillis();
         if (now - lastCheckTime < CHECK_INTERVAL_MS) {
             return;
         }
         lastCheckTime = now;
-        
+
+        debugLog.log("[tick] calling doCheck()");
+
         try {
-            // First, try to process any pending transition (retry if MapFile was not available)
-            if (pendingTransition != null) {
-                debugLog.log("[tick] Processing pending transition...");
-                if (now - pendingTransitionCreatedTime > PENDING_TRANSITION_TIMEOUT_MS) {
-                    debugLog.log("[tick] Pending transition timeout - giving up");
-                    pendingTransition = null;
-                } else {
-                    try {
-                        PortalMarkerLink link = markerLinker.linkPortalMarkers(pendingTransition);
-                        debugLog.log("[tick] Pending transition succeeded: " + link);
-                        pendingTransition = null;
-                    } catch (Exception e) {
-                        debugLog.log("[tick] Pending transition still failing: " + e.getMessage());
-                        // Keep pending for next tick
-                    }
-                }
-            }
-            
             doCheck();
         } catch (Exception e) {
             debugLog.log("[tick] ERROR: " + e.getMessage());
@@ -176,8 +163,11 @@ public class PortalMarkerTracker {
      * Main check logic.
      */
     private void doCheck() {
+        debugLog.log("[doCheck] START");
+        
         GameUI gui = NUtils.getGameUI();
         if (gui == null || gui.map == null) {
+            debugLog.log("[doCheck] gui or map is null - returning");
             return;
         }
 
@@ -243,16 +233,25 @@ public class PortalMarkerTracker {
             return; // Skip grid change check on first run
         }
 
-        // Check for grid change (portal transition)
-        if (currentGridId != lastGridId) {
-            debugLog.log("[doCheck] GRID CHANGED: " + lastGridId + " -> " + currentGridId);
-            onGridChanged(lastGridId, currentGridId, lastSegmentId, currentSegmentId, player);
-            
-            // Always update lastGridId/lastSegmentId after grid change
+        // Check for segment change (layer transition via cave/minehole/ladder)
+        // Cave passages change segment ID but NOT grid ID
+        debugLog.log("[doCheck] Checking segment change: currentSegmentId=" + currentSegmentId + ", lastSegmentId=" + lastSegmentId);
+        if (lastSegmentId != -1 && currentSegmentId != -1 && currentSegmentId != lastSegmentId) {
+            debugLog.log("[doCheck] SEGMENT CHANGED DETECTED: " + lastSegmentId + " -> " + currentSegmentId);
+            debugLog.log("[doCheck] Grid IDs: currentGridId=" + currentGridId + ", lastGridId=" + lastGridId);
+            try {
+                onGridChanged(lastGridId, currentGridId, lastSegmentId, currentSegmentId, player);
+            } catch (Exception e) {
+                debugLog.log("[doCheck] onGridChanged threw exception: " + e.getMessage());
+                e.printStackTrace();
+            }
+
+            // Always update lastSegmentId after segment change
             lastGridId = currentGridId;
             lastSegmentId = currentSegmentId;
             return; // Skip rest of doCheck()
         }
+        debugLog.log("[doCheck] No segment change");
 
         // Update state (only if no grid change - grid change updates state before return)
         lastGridId = currentGridId;
