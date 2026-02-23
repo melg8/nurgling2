@@ -216,10 +216,15 @@ public class PortalMarkerTracker {
 
                 // Get portal's grid ID
                 if (cachedPortalLocalCoord != null) {
-                    MCache.Grid portalGrid = mcache.getgridt(cachedPortalLocalCoord.floor(MCache.tilesz));
-                    if (portalGrid != null) {
-                        cachedPortalGridId = portalGrid.id;
-                        debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId);
+                    try {
+                        MCache.Grid portalGrid = mcache.getgridt(cachedPortalLocalCoord.floor(MCache.tilesz));
+                        if (portalGrid != null) {
+                            cachedPortalGridId = portalGrid.id;
+                            debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId);
+                        }
+                    } catch (Exception e) {
+                        debugLog.log("[doCheck] Failed to get portal grid: " + e.getMessage());
+                        // Continue without portal grid
                     }
                 }
             }
