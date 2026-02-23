@@ -331,6 +331,11 @@ public class PortalMarkerTracker {
             // Mark the cached portal as processed
             lastProcessedPortalGobId = cachedPortalGob.id;
             
+        } catch (haven.Loading e) {
+            // Map data not ready - save for retry
+            debugLog.log("[onGridChanged] Loading - saving for retry: " + e.getMessage());
+            pendingTransition = transition;
+            pendingTransitionCreatedTime = System.currentTimeMillis();
         } catch (Exception e) {
             String errorMsg = e.getMessage();
             debugLog.log("[onGridChanged] ERROR: " + errorMsg);

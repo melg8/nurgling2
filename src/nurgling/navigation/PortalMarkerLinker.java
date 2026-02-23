@@ -318,9 +318,9 @@ public class PortalMarkerLinker {
         try {
             MapFile file = getMapFile();
             if (file == null) {
-                throw new RuntimeException("MapFile not available");
+                throw new haven.Loading("MapFile not available");
             }
-            
+
             debugLog.log("[createMarker] " + name + " segment=" + segmentId + " at " + coords);
 
             // Create SMarker (system marker)
@@ -329,17 +329,24 @@ public class PortalMarkerLinker {
 
             MapFile.SMarker marker = new MapFile.SMarker(segmentId, coords, name, 0, res);
 
+            // Try to access markers list - this may throw Loading exception
             if (file.markers != null) {
                 file.add(marker);
                 debugLog.log("[createMarker] Marker added: " + name);
+                return segmentId ^ (coords.x * 31 + coords.y);
+            } else {
+                debugLog.log("[createMarker] file.markers is null - throwing Loading");
+                throw new haven.Loading("file.markers is null");
             }
 
-            return segmentId ^ (coords.x * 31 + coords.y);
-
+        } catch (haven.Loading e) {
+            // Map data not ready - rethrow to trigger retry
+            debugLog.log("[createMarker] Loading: " + e.getMessage());
+            throw e;
         } catch (Exception e) {
             debugLog.log("[createMarker] ERROR: " + e.getMessage());
             logger.logMarkerError("CREATE_MARKER_FAILED",
-                "segment=" + segmentId + ", coords=(" + coords.x + "," + coords.y + 
+                "segment=" + segmentId + ", coords=(" + coords.x + "," + coords.y +
                 "), name=\"" + name + "\", error=" + e.getMessage());
             return -1;
         }
