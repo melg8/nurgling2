@@ -200,7 +200,11 @@ public class PortalMarkerLinker {
         debugLog.log("[linkPortalMarkers] namePrefix=" + namePrefix + ", icon=" + iconName);
 
         // Step 5: Create entrance marker (IN direction)
+        // Entrance is on the fromSegment (where player was before transition)
+        // Use portal coordinates for IN marker
         String entranceName = namePrefix + " " + uid + " IN";
+        debugLog.log("[linkPortalMarkers] IN marker using portalCoordinates=(" + 
+            (transition.portalCoordinates != null ? transition.portalCoordinates.x + "," + transition.portalCoordinates.y : "null") + ")");
         Coord entranceCoords = computeMarkerCoordinates(
             transition.portalCoordinates,
             transition.fromSegmentId
@@ -218,9 +222,13 @@ public class PortalMarkerLinker {
         logger.logMarkerCreated(uid, "IN", transition.fromSegmentId, entranceCoords, entranceName);
 
         // Step 6: Create exit marker (OUT direction)
+        // Exit is on the toSegment (where player appeared after transition)
+        // Use player position for OUT marker (more accurate than portal coordinates)
         String exitName = namePrefix + " " + uid + " OUT";
+        debugLog.log("[linkPortalMarkers] OUT marker using playerPosition=(" + 
+            (transition.playerPosition != null ? transition.playerPosition.x + "," + transition.playerPosition.y : "null") + ")");
         Coord exitCoords = computeMarkerCoordinates(
-            transition.portalCoordinates,
+            transition.playerPosition,
             transition.toSegmentId
         );
         debugLog.log("[linkPortalMarkers] Creating exit marker: " + exitName + " at " + exitCoords);
