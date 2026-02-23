@@ -34,6 +34,12 @@ echo Using Java: %JAVA_CMD%
 cd /d "%~dp0"
 cd bin
 
+REM Clear old logs before starting
+if exist "logs" (
+    echo Clearing old logs...
+    del /q logs\*.log
+)
+
 REM Run the game with Java 21+ settings
 "%JAVA_CMD%" ^
     -Dsun.java2d.uiScale.enabled=false ^
