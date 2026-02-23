@@ -93,7 +93,7 @@ public class PortalMarkerTracker {
      */
     private LayerTransition pendingTransition = null;
     private long pendingTransitionCreatedTime = 0;
-    private static final long PENDING_TRANSITION_TIMEOUT_MS = 5000; // 5 seconds
+    private static final long PENDING_TRANSITION_TIMEOUT_MS = 30000; // 30 seconds
     
     /**
      * Tracking enabled flag.

@@ -120,18 +120,29 @@ public class PortalMarkerLinker {
     
     /**
      * Gets the MapFile instance, retrieving it dynamically from game UI.
-     * 
+     *
      * @return MapFile instance or null if not available
      */
     private MapFile getMapFile() {
         if (mapFile == null) {
             try {
                 GameUI gui = NUtils.getGameUI();
-                if (gui != null && gui.mapfile != null) {
-                    mapFile = gui.mapfile.file;
+                if (gui == null) {
+                    debugLog.log("[getMapFile] GameUI is null");
+                    return null;
                 }
+                if (gui.mapfile == null) {
+                    debugLog.log("[getMapFile] gui.mapfile is null");
+                    return null;
+                }
+                if (gui.mapfile.file == null) {
+                    debugLog.log("[getMapFile] gui.mapfile.file is null");
+                    return null;
+                }
+                mapFile = gui.mapfile.file;
+                debugLog.log("[getMapFile] MapFile obtained successfully");
             } catch (Exception e) {
-                // MapFile not available yet
+                debugLog.log("[getMapFile] Exception: " + e.getClass().getName() + ": " + e.getMessage());
                 logger.logMarkerError("GET_MAPFILE_FAILED", "error=" + e.getMessage());
             }
         }
