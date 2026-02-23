@@ -1,45 +1,45 @@
 ## 1. Базовая инфраструктура
 
-- [ ] 1.1 Создать класс `MarkerUidGenerator.java` — генерация 6-символьных UID через SHA-256 + Base62
-- [ ] 1.2 Создать класс `PortalMarkerLogger.java` — логирование событий в файлы (portal_transitions.log, marker_events.log, uid_generation.log)
-- [ ] 1.3 Создать класс `LayerTransition.java` — модель данных перехода (fromSegmentId, toSegmentId, portalCoordinates, portalName)
-- [ ] 1.4 Создать класс `PortalMarkerLink.java` — представление связанной пары маркеров
-- [ ] 1.5 Создать класс `PortalName.java` — утилиты для имён порталов и определения направления IN/OUT
+- [x] 1.1 Создать класс `MarkerUidGenerator.java` — генерация 6-символьных UID через SHA-256 + Base62
+- [x] 1.2 Создать класс `PortalMarkerLogger.java` — логирование событий в файлы (portal_transitions.log, marker_events.log, uid_generation.log)
+- [x] 1.3 Создать класс `LayerTransition.java` — модель данных перехода (fromSegmentId, toSegmentId, portalCoordinates, portalName)
+- [x] 1.4 Создать класс `PortalMarkerLink.java` — представление связанной пары маркеров
+- [x] 1.5 Создать класс `PortalName.java` — утилиты для имён порталов и определения направления IN/OUT
 
 ## 2. Основной сервис связывания маркеров
 
-- [ ] 2.1 Создать класс `PortalMarkerLinker.java` — основной сервис для создания связанных маркеров
-- [ ] 2.2 Реализовать метод `linkPortalMarkers(LayerTransition)` — создание пары маркеров IN/OUT
-- [ ] 2.3 Реализовать генерацию UID через `MarkerUidGenerator` с использованием XOR сегментов
-- [ ] 2.4 Реализовать дедупликацию — проверка существующих маркеров перед созданием
-- [ ] 2.5 Реализовать метод `createMarker()` — создание SMarker через MapFile API
-- [ ] 2.6 Реализовать метод `computeMarkerCoordinates()` — преобразование координат портала в координаты маркера
-- [ ] 2.7 Реализовать логику определения направления (IN/OUT) через `PortalName.getDirection()`
+- [x] 2.1 Создать класс `PortalMarkerLinker.java` — основной сервис для создания связанных маркеров
+- [x] 2.2 Реализовать метод `linkPortalMarkers(LayerTransition)` — создание пары маркеров IN/OUT
+- [x] 2.3 Реализовать генерацию UID через `MarkerUidGenerator` с использованием XOR сегментов
+- [x] 2.4 Реализовать дедупликацию — проверка существующих маркеров перед созданием
+- [x] 2.5 Реализовать метод `createMarker()` — создание SMarker через MapFile API
+- [x] 2.6 Реализовать метод `computeMarkerCoordinates()` — преобразование координат портала в координаты маркера
+- [x] 2.7 Реализовать логику определения направления (IN/OUT) через `PortalName.getDirection()`
 
 ## 3. Независимый трекер переходов
 
-- [ ] 3.1 Создать класс `PortalMarkerTracker.java` — независимый трекер для обнаружения переходов
-- [ ] 3.2 Реализовать метод `tick()` — периодический вызов из игрового цикла
-- [ ] 3.3 Реализовать обнаружение изменения gridId через MCache.getgridt()
-- [ ] 3.4 Реализовать получение segmentId из MapFile.view.sessloc.seg.id
-- [ ] 3.5 Реализовать кэширование портала из lastActions (клик игрока)
-- [ ] 3.6 Реализовать метод `onGridChanged()` — обработка перехода между слоями
-- [ ] 3.7 Реализовать исключение телепортов (hearthfire, totem, signpost)
-- [ ] 3.8 Реализовать исключение cellar из разметки
+- [x] 3.1 Создать класс `PortalMarkerTracker.java` — независимый трекер для обнаружения переходов
+- [x] 3.2 Реализовать метод `tick()` — периодический вызов из игрового цикла
+- [x] 3.3 Реализовать обнаружение изменения gridId через MCache.getgridt()
+- [x] 3.4 Реализовать получение segmentId из MapFile.view.sessloc.seg.id
+- [x] 3.5 Реализовать кэширование портала из lastActions (клик игрока)
+- [x] 3.6 Реализовать метод `onGridChanged()` — обработка перехода между слоями
+- [x] 3.7 Реализовать исключение телепортов (hearthfire, totem, signpost)
+- [x] 3.8 Реализовать исключение cellar из разметки
 
 ## 4. Массовая разметка порталов
 
-- [ ] 4.1 Реализовать сканирование всех порталов на сегменте при переходе
-- [ ] 4.2 Реализовать метод `findAllPortalsOnSegment(segmentId)` — поиск cave, minehole, ladder
-- [ ] 4.3 Реализовать фильтрацию уже размеченных порталов (проверка по UID)
-- [ ] 4.4 Реализовать циклическое создание маркеров для всех неразмеченных порталов
+- [x] 4.1 Реализовать сканирование всех порталов на сегменте при переходе
+- [x] 4.2 Реализовать метод `findAllPortalsOnSegment(segmentId)` — поиск cave, minehole, ladder
+- [x] 4.3 Реализовать фильтрацию уже размеченных порталов (проверка по UID)
+- [x] 4.4 Реализовать циклическое создание маркеров для всех неразмеченных порталов
 
 ## 5. Интеграция в игру
 
-- [ ] 5.1 Добавить вызов `PortalMarkerTracker.tick()` из `NMapView.tick()` или `NCore.tick()`
-- [ ] 5.2 Добавить конфиг `portalMarkerAutoCreate` (по умолчанию true)
-- [ ] 5.3 Добавить опцию в UI (QoL settings) для включения/выключения функции
-- [ ] 5.4 Реализовать проверку конфига в `PortalMarkerTracker.tick()`
+- [x] 5.1 Добавить вызов `PortalMarkerTracker.tick()` из `NMapView.tick()` или `NCore.tick()`
+- [x] 5.2 Добавить конфиг `portalMarkerAutoCreate` (по умолчанию true)
+- [x] 5.3 Добавить опцию в UI (QoL settings) для включения/выключения функции
+- [x] 5.4 Реализовать проверку конфига в `PortalMarkerTracker.tick()`
 
 ## 6. Тестирование
 

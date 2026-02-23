@@ -19,6 +19,7 @@ import nurgling.overlays.map.*;
 import nurgling.navigation.ChunkNavData;
 import nurgling.navigation.ChunkNavManager;
 import nurgling.navigation.ChunkPortal;
+import nurgling.navigation.PortalMarkerTracker;
 import nurgling.scenarios.Scenario;
 import nurgling.headless.Headless;
 import nurgling.tasks.WaitForMapGridLoad;
@@ -56,6 +57,8 @@ public class NMapView extends MapView
     private UI.Grab dragGrab = null;
     // Chunk navigation manager - owned by NMapView, not a singleton
     private ChunkNavManager chunkNavManager;
+    // Portal marker tracker for automatic marker linking (independent of ChunkNav)
+    private PortalMarkerTracker portalMarkerTracker;
 
     // Track areas that were deleted locally to prevent restoration during sync
     private final Set<Integer> locallyDeletedAreas = new HashSet<>();
@@ -81,6 +84,11 @@ public class NMapView extends MapView
             chunkNavManager.initialize(genus);
         } catch(Exception e) {
             System.err.println("NMapView: Error initializing ChunkNavManager: " + e.getMessage());
+        }
+        
+        // Initialize portal marker tracker (independent of ChunkNav)
+        if (portalMarkerTracker == null) {
+            portalMarkerTracker = new PortalMarkerTracker();
         }
     }
 
@@ -783,6 +791,11 @@ public class NMapView extends MapView
         // Tick chunk navigation system for recording
         if (chunkNavManager != null) {
             chunkNavManager.tick();
+        }
+        
+        // Tick portal marker tracker for automatic marker linking
+        if (portalMarkerTracker != null) {
+            portalMarkerTracker.tick();
         }
         ArrayList<Long> forRemove = new ArrayList<>();
 //        for(Gob dummy : dummys.values())

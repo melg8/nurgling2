@@ -99,6 +99,7 @@ public class NConfig
         questNotified, lpassistent, fishingsettings,
         serverNode, serverUser, serverPass, postgresMaxConnections, ndbenable, dbStatsOverlay, harvestautorefill, cleanupQContainers, autoEquipTravellersSacks, qualityGrindSeedingPatter, postgres, sqlite, dbFilePath, simplecrops,
         temsmarktime, exploredAreaEnable, highlightCliffs, chunkNavOverlay, player_box, player_fov, temsmarkdist, tempmark, tempmarkIgnoreDist, gridbox, useGlobalPf, useHFinGlobalPF, boxFillColor, boxEdgeColor, boxLineWidth, ropeAfterFeeding, ropeAfterTaiming, eatingConf, deersprop,dropConf, printpfmap, fonts,
+        portalMarkerAutoCreate,
         areaRankPresets,  // Map of areaId -> Map of animalType -> presetName
         shortCupboards,
         shortWalls,
@@ -279,6 +280,7 @@ public class NConfig
         conf.put(Key.exploredAreaEnable, false);
         conf.put(Key.highlightCliffs, false);
         conf.put(Key.chunkNavOverlay, false);
+        conf.put(Key.portalMarkerAutoCreate, true);  // Enabled by default
         conf.put(Key.player_box, false);
         conf.put(Key.player_fov, false);
         conf.put(Key.gridbox, false);

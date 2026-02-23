@@ -30,6 +30,7 @@ public class QoL extends Panel {
     private CheckBox debug;
     private CheckBox tempmark;
     private CheckBox tempmarkIgnoreDist;
+    private CheckBox portalMarkerAutoCreate;
     private CheckBox shortCupboards;
     private CheckBox shortWalls;
     private CheckBox decalsOnTop;
@@ -271,6 +272,7 @@ public class QoL extends Panel {
         rightPrev = rightColumn.add(new Label("● " + L10n.get("qol.section.temp_marks")), rightPrev.pos("bl").adds(0, 15));
         rightPrev = tempmark = rightColumn.add(new CheckBox(L10n.get("qol.save_temp_marks")), rightPrev.pos("bl").adds(0, 5));
         rightPrev = tempmarkIgnoreDist = rightColumn.add(new CheckBox(L10n.get("qol.ignore_distance")), rightPrev.pos("bl").adds(0, 5));
+        rightPrev = portalMarkerAutoCreate = rightColumn.add(new CheckBox(L10n.get("qol.portal_marker_auto_create", "Auto-create portal markers")), rightPrev.pos("bl").adds(0, 5));
         rightPrev = rightColumn.add(new Label(L10n.get("qol.max_distance")), rightPrev.pos("bl").adds(0, 5));
         rightPrev = temsmarkdistEntry = rightColumn.add(new TextEntry.NumberValue(50, ""), rightPrev.pos("bl").adds(0, 5));
         rightPrev = rightColumn.add(new Label(L10n.get("qol.storage_duration")), rightPrev.pos("bl").adds(0, 5));
@@ -320,6 +322,7 @@ public class QoL extends Panel {
         printpfmap.a = getBool(NConfig.Key.printpfmap);
         tempmark.a = getBool(NConfig.Key.tempmark);
         tempmarkIgnoreDist.a = getBool(NConfig.Key.tempmarkIgnoreDist);
+        portalMarkerAutoCreate.a = getBool(NConfig.Key.portalMarkerAutoCreate);
         shortCupboards.a = getBool(NConfig.Key.shortCupboards);
         shortWalls.a = getBool(NConfig.Key.shortWalls);
         decalsOnTop.a = getBool(NConfig.Key.decalsOnTop);
@@ -467,6 +470,7 @@ public class QoL extends Panel {
         NConfig.set(NConfig.Key.printpfmap, printpfmap.a);
         NConfig.set(NConfig.Key.tempmark, tempmark.a);
         NConfig.set(NConfig.Key.tempmarkIgnoreDist, tempmarkIgnoreDist.a);
+        NConfig.set(NConfig.Key.portalMarkerAutoCreate, portalMarkerAutoCreate.a);
         
         // Save cupboard settings and rebuild cupboards if changed
         boolean oldShortCupboards = getBool(NConfig.Key.shortCupboards);
