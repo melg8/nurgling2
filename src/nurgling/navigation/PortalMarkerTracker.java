@@ -245,20 +245,13 @@ public class PortalMarkerTracker {
 
         // Check for grid change (portal transition)
         if (currentGridId != lastGridId) {
-            // If we already have a pending transition for this exact change, don't create another
-            // This prevents duplicates when player stands on grid boundary
-            if (pendingTransition != null &&
-                pendingTransition.fromSegmentId == lastSegmentId &&
-                pendingTransition.toSegmentId == currentSegmentId) {
-                debugLog.log("[doCheck] GRID CHANGED: same as pending - skipping duplicate");
-            } else {
-                debugLog.log("[doCheck] GRID CHANGED: " + lastGridId + " -> " + currentGridId);
-                onGridChanged(lastGridId, currentGridId, lastSegmentId, currentSegmentId, player);
-            }
-            // Always update lastGridId/lastSegmentId even if we skipped (prevents infinite loop)
+            debugLog.log("[doCheck] GRID CHANGED: " + lastGridId + " -> " + currentGridId);
+            onGridChanged(lastGridId, currentGridId, lastSegmentId, currentSegmentId, player);
+            
+            // Always update lastGridId/lastSegmentId after grid change
             lastGridId = currentGridId;
             lastSegmentId = currentSegmentId;
-            return; // Skip rest of doCheck() - portal already captured or pending
+            return; // Skip rest of doCheck()
         }
 
         // Update state (only if no grid change - grid change updates state before return)
