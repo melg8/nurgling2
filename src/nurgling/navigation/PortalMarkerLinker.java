@@ -318,26 +318,25 @@ public class PortalMarkerLinker {
         try {
             MapFile file = getMapFile();
             if (file == null) {
+                debugLog.log("[createMarker] MapFile is null - throwing Loading");
                 throw new haven.Loading("MapFile not available");
             }
 
             debugLog.log("[createMarker] " + name + " segment=" + segmentId + " at " + coords);
+            debugLog.log("[createMarker] file.markers=" + (file.markers != null ? "not null" : "null") + ", size=" + (file.markers != null ? file.markers.size() : "N/A"));
 
             // Create SMarker (system marker)
             String iconResource = PortalName.getIconName(null, "IN");
             Resource.Saved res = new Resource.Saved(Resource.remote(), iconResource, 0);
 
             MapFile.SMarker marker = new MapFile.SMarker(segmentId, coords, name, 0, res);
+            debugLog.log("[createMarker] SMarker created: oid=0, res=" + iconResource);
 
-            // Try to access markers list - this may throw Loading exception
-            if (file.markers != null) {
-                file.add(marker);
-                debugLog.log("[createMarker] Marker added: " + name);
-                return segmentId ^ (coords.x * 31 + coords.y);
-            } else {
-                debugLog.log("[createMarker] file.markers is null - throwing Loading");
-                throw new haven.Loading("file.markers is null");
-            }
+            // Add marker - this may throw Loading if map data not ready
+            debugLog.log("[createMarker] Calling file.add()...");
+            file.add(marker);
+            debugLog.log("[createMarker] Marker added successfully: " + name);
+            return segmentId ^ (coords.x * 31 + coords.y);
 
         } catch (haven.Loading e) {
             // Map data not ready - rethrow to trigger retry
@@ -345,6 +344,7 @@ public class PortalMarkerLinker {
             throw e;
         } catch (Exception e) {
             debugLog.log("[createMarker] ERROR: " + e.getMessage());
+            e.printStackTrace();
             logger.logMarkerError("CREATE_MARKER_FAILED",
                 "segment=" + segmentId + ", coords=(" + coords.x + "," + coords.y +
                 "), name=\"" + name + "\", error=" + e.getMessage());
