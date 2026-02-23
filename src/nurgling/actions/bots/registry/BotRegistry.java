@@ -269,6 +269,7 @@ public class BotRegistry {
         bots.add(new BotDescriptor("navstresstest", BotDescriptor.BotType.TOOLS, "Navigation Stress Test", "Continuously tests chunk navigation between random areas. Results saved to JSON file.", false, true, NavigationStressTest.class, "test15", true));
         bots.add(new BotDescriptor("cliffclimber", BotDescriptor.BotType.TOOLS, "Cliff Climber Test", "Tests cliff crossing logic with visualization. Shows planned path and cliff analysis.", false, true, CliffClimberTest.class, "test16", false));
         bots.add(new BotDescriptor("cliffcrossing", BotDescriptor.BotType.TOOLS, "Cliff Crossing Test", "Advanced cliff crossing test with corner approach for double cliffs. Used to debug cliff logic before integrating into Explorer.", false, true, CliffCrossingTestBot.class, "test17", false));
+        bots.add(new BotDescriptor("clearlogs", BotDescriptor.BotType.TOOLS, "Clear Logs & Markers", "Deletes all portal marker logs and clears all map markers. Useful for testing.", false, true, ClearLogsAndMarkers.class, "test18", false));
         //bots.add(new BotDescriptor("testzonepatroller", BotDescriptor.BotType.UTILS, "Test Zone Patroller", "Patrols 15 test zones (test1-test15) every 30 minutes, returning to test16 between cycles.", true, true, TestZonePatroller.class, "worldexplorer", false));
     }
 
