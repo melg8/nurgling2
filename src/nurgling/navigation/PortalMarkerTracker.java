@@ -88,6 +88,7 @@ public class PortalMarkerTracker {
     private Coord2d cachedPortalLocalCoord = null;
     private Coord2d cachedPortalPlayerPosition = null;
     private long cachedPortalGridId = -1;
+    private haven.MapFile.GridInfo cachedPortalGridInfo = null;
     
     /**
      * Player position logger (logs every 500ms).
@@ -147,6 +148,7 @@ public class PortalMarkerTracker {
         cachedPortalLocalCoord = null;
         cachedPortalPlayerPosition = null;
         cachedPortalGridId = -1;
+        cachedPortalGridInfo = null;
         pendingTransition = null;
         pendingTransitionCreatedTime = 0;
         lastProcessedFromGridId = -1;
@@ -281,13 +283,23 @@ public class PortalMarkerTracker {
                 lastProcessedPortalGobId = lastActions.gob.id; // Mark as processed to prevent recapture
                 debugLog.log("[doCheck] Portal local coords: " + cachedPortalLocalCoord + ", player at " + cachedPortalPlayerPosition);
 
-                // Get portal's grid ID
+                // Get portal's grid ID and GridInfo
                 if (cachedPortalLocalCoord != null) {
                     try {
                         MCache.Grid portalGrid = mcache.getgridt(cachedPortalLocalCoord.floor(MCache.tilesz));
                         if (portalGrid != null) {
                             cachedPortalGridId = portalGrid.id;
                             debugLog.log("[doCheck] Portal gridId=" + cachedPortalGridId + " at " + cachedPortalLocalCoord.floor(MCache.tilesz));
+                            
+                            // Capture GridInfo while portal is still loaded
+                            if (gui.mapfile != null && gui.mapfile.file != null) {
+                                cachedPortalGridInfo = gui.mapfile.file.gridinfo.get(portalGrid.id);
+                                if (cachedPortalGridInfo != null) {
+                                    debugLog.log("[doCheck] Portal GridInfo captured: seg=" + cachedPortalGridInfo.seg + ", sc=" + cachedPortalGridInfo.sc);
+                                } else {
+                                    debugLog.log("[doCheck] Portal GridInfo not available yet");
+                                }
+                            }
                         }
                     } catch (Exception e) {
                         debugLog.log("[doCheck] Failed to get portal grid: " + e.getMessage());
@@ -420,7 +432,8 @@ public class PortalMarkerTracker {
             portalCoords,
             portalName,
             playerPosAtPortal, // Player position when portal was clicked (for IN marker)
-            player.rc          // Player position after transition (for OUT marker)
+            player.rc,         // Player position after transition (for OUT marker)
+            cachedPortalGridInfo // Portal GridInfo captured before transition
         );
         
         // Log transition
@@ -450,6 +463,7 @@ public class PortalMarkerTracker {
         cachedPortalLocalCoord = null;
         cachedPortalPlayerPosition = null;
         cachedPortalGridId = -1;
+        cachedPortalGridInfo = null;
     }
     
     /**

@@ -165,15 +165,41 @@ public class PortalMarkerLinker {
         debugLog.log("[linkPortalMarkers] START: " + transition);
 
         // Step 1: Generate UID from segment pair and coordinates
+        // IMPORTANT: Use surface coordinates for UID generation to ensure same UID for both directions!
+        // - For cave transitions: use portalCoordinates (portal gob is on surface for cavein2)
+        // - playerPositionAtPortal may be captured AFTER transition (underground)!
+
+        String direction = PortalName.getDirection(
+            transition.fromSegmentId,
+            transition.toSegmentId,
+            transition.portalName
+        );
+
+        // Use surface coordinates for UID generation
+        Coord2d uidCoords;
+        if ("IN".equals(direction)) {
+            // Entering cave: use portalCoordinates (portal gob is on surface)
+            // playerPositionAtPortal may be underground if captured after transition
+            uidCoords = transition.portalCoordinates != null ? 
+                transition.portalCoordinates : transition.playerPositionAtPortal;
+        } else {
+            // Exiting cave: player is on surface at playerPositionAfterTransition
+            uidCoords = transition.playerPositionAfterTransition;
+        }
+
+        debugLog.log("[linkPortalMarkers] Using UID coords: (" +
+            (uidCoords != null ? uidCoords.x + "," + uidCoords.y : "null") + ") from " +
+            ("IN".equals(direction) ? "portalCoordinates" : "playerPositionAfterTransition"));
+        
         String uid = uidGenerator.generate(
             transition.fromSegmentId,
             transition.toSegmentId,
-            transition.portalCoordinates
+            uidCoords
         );
 
         long xorSegment = transition.getXorSegmentPair();
         debugLog.log("[linkPortalMarkers] UID generated: " + uid + " (xorSegment=" + xorSegment + ")");
-        logger.logUidGeneration(xorSegment, transition.portalCoordinates, uid);
+        logger.logUidGeneration(xorSegment, uidCoords, uid);
 
         // Step 2: Get MapFile
         MapFile file = getMapFile();
@@ -182,11 +208,8 @@ public class PortalMarkerLinker {
             throw new haven.Loading("Waiting for map data...");
         }
 
-        // Step 3: Check for existing markers with same UID
-        Optional<PortalMarkerLink> existing = findExistingLink(
-            transition.toSegmentId,
-            uid
-        );
+        // Step 3: Check for existing markers with same UID (searches ALL segments)
+        Optional<PortalMarkerLink> existing = findExistingLink(uid);
 
         if (existing.isPresent()) {
             debugLog.log("[linkPortalMarkers] Link already exists - skipping");
@@ -194,15 +217,9 @@ public class PortalMarkerLinker {
             return existing.get();
         }
 
-        // Step 3: Determine direction
-        String direction = PortalName.getDirection(
-            transition.fromSegmentId,
-            transition.toSegmentId,
-            transition.portalName
-        );
         debugLog.log("[linkPortalMarkers] Direction: " + direction);
 
-        // Step 4: Get marker name prefix and icon
+        // Step 5: Get marker name prefix and icon
         String namePrefix = PortalName.getNamePrefix(transition.portalName);
         String iconName = PortalName.getIconName(transition.portalName, direction);
         debugLog.log("[linkPortalMarkers] namePrefix=" + namePrefix + ", icon=" + iconName);
@@ -214,43 +231,62 @@ public class PortalMarkerLinker {
         // - "IN" = entering cave (from surface to underground)
         // - "OUT" = exiting cave (from underground to surface)
         //
-        // IMPORTANT: Use DIFFERENT coordinates for IN and OUT markers!
-        // - IN marker (surface): use player position AFTER transition (where player appeared)
-        // - OUT marker (underground): use portal coordinates (where portal is located)
-        
+        // IMPORTANT: Use player positions for marker coordinates!
+        // - IN marker (surface): use player position ON SURFACE
+        // - OUT marker (underground): use player position UNDERGROUND
+        //
+        // This ensures computeMarkerCoordinates gets the correct GridInfo for the target segment.
+        // Using portalCoordinates can cause segment mismatch because the portal gob may be in
+        // a different segment than where the marker should be placed.
+
         debugLog.log("[linkPortalMarkers] direction=" + direction);
-        debugLog.log("[linkPortalMarkers] portalCoordinates=(" + 
+        debugLog.log("[linkPortalMarkers] portalCoordinates=(" +
             (transition.portalCoordinates != null ? transition.portalCoordinates.x + "," + transition.portalCoordinates.y : "null") + ")");
-        debugLog.log("[linkPortalMarkers] playerPositionAtPortal=(" + 
+        debugLog.log("[linkPortalMarkers] playerPositionAtPortal=(" +
             (transition.playerPositionAtPortal != null ? transition.playerPositionAtPortal.x + "," + transition.playerPositionAtPortal.y : "null") + ")");
-        debugLog.log("[linkPortalMarkers] playerPositionAfterTransition=(" + 
+        debugLog.log("[linkPortalMarkers] playerPositionAfterTransition=(" +
             (transition.playerPositionAfterTransition != null ? transition.playerPositionAfterTransition.x + "," + transition.playerPositionAfterTransition.y : "null") + ")");
-        
+
         // Create IN marker (on surface)
         String entranceName = namePrefix + " " + uid + " IN";
         long inMarkerSegmentId = "OUT".equals(direction) ? transition.toSegmentId : transition.fromSegmentId;
 
-        // For IN marker on surface, use player position after transition (where player appeared)
-        Coord2d inMarkerPosition = "OUT".equals(direction) ? transition.playerPositionAfterTransition : transition.playerPositionAtPortal;
+        // For IN marker on surface:
+        // - If direction=IN (entering cave): Use portalCoordinates (portal gob is on surface)
+        //   IMPORTANT: playerPositionAtPortal may be captured AFTER transition (underground)!
+        // - If direction=OUT (exiting cave): player is on surface at playerPositionAfterTransition
+        Coord2d inMarkerPosition;
+        if ("OUT".equals(direction)) {
+            // Exiting cave: player is on surface after transition
+            inMarkerPosition = transition.playerPositionAfterTransition;
+        } else {
+            // Entering cave: portal gob is on surface, use portal coordinates
+            // playerPositionAtPortal may be underground if captured after transition
+            inMarkerPosition = transition.portalCoordinates != null ? 
+                transition.portalCoordinates : transition.playerPositionAtPortal;
+        }
         debugLog.log("[linkPortalMarkers] Creating IN marker on segment=" + inMarkerSegmentId + " at " + inMarkerPosition);
-        
+
         // Check if IN marker already exists
         boolean inMarkerExists = markerExists(inMarkerSegmentId, entranceName);
         long entranceMarkerId;
         Coord entranceCoords;
-        
+
         if (inMarkerExists) {
             debugLog.log("[linkPortalMarkers] IN marker already exists - skipping creation");
             try {
-                entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+                entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId, transition.portalGridInfo);
             } catch (haven.Loading e) {
                 // Use dummy coords if Loading - marker already exists anyway
                 entranceCoords = inMarkerPosition.floor(MCache.tilesz);
             }
             entranceMarkerId = inMarkerSegmentId ^ (entranceCoords.x * 31 + entranceCoords.y);
         } else {
+            debugLog.log("[linkPortalMarkers] IN marker does NOT exist, attempting to create...");
             try {
-                entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId);
+                debugLog.log("[linkPortalMarkers] Calling computeMarkerCoordinates for IN marker...");
+                entranceCoords = computeMarkerCoordinates(inMarkerPosition, inMarkerSegmentId, transition.portalGridInfo);
+                debugLog.log("[linkPortalMarkers] IN marker coords computed: " + entranceCoords);
             } catch (haven.Loading e) {
                 debugLog.log("[linkPortalMarkers] IN marker Loading: " + e.getMessage());
                 throw e; // Rethrow for retry
@@ -272,19 +308,31 @@ public class PortalMarkerLinker {
         String exitName = namePrefix + " " + uid + " OUT";
         long outMarkerSegmentId = "OUT".equals(direction) ? transition.fromSegmentId : transition.toSegmentId;
 
-        // For OUT marker underground, use portal coordinates (where portal is located)
-        Coord2d outMarkerPosition = transition.portalCoordinates;
+        // For OUT marker underground:
+        // - If direction=IN (entering cave): player is underground at playerPositionAfterTransition
+        // - If direction=OUT (exiting cave): Use portalCoordinates (caveout portal is underground)
+        //   IMPORTANT: playerPositionAtPortal may be captured AFTER transition (on surface)!
+        Coord2d outMarkerPosition;
+        if ("OUT".equals(direction)) {
+            // Exiting cave: caveout portal gob is underground, use portal coordinates
+            // playerPositionAtPortal may be on surface if captured after transition
+            outMarkerPosition = transition.portalCoordinates != null ? 
+                transition.portalCoordinates : transition.playerPositionAtPortal;
+        } else {
+            // Entering cave: player is underground after transition
+            outMarkerPosition = transition.playerPositionAfterTransition;
+        }
         debugLog.log("[linkPortalMarkers] Creating OUT marker on segment=" + outMarkerSegmentId + " at " + outMarkerPosition);
-        
+
         // Check if OUT marker already exists
         boolean outMarkerExists = markerExists(outMarkerSegmentId, exitName);
         long exitMarkerId;
         Coord exitCoords;
-        
+
         if (outMarkerExists) {
             debugLog.log("[linkPortalMarkers] OUT marker already exists - skipping creation");
             try {
-                exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+                exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId, transition.portalGridInfo);
             } catch (haven.Loading e) {
                 // Use dummy coords if Loading - marker already exists anyway
                 exitCoords = outMarkerPosition.floor(MCache.tilesz);
@@ -292,7 +340,7 @@ public class PortalMarkerLinker {
             exitMarkerId = outMarkerSegmentId ^ (exitCoords.x * 31 + exitCoords.y);
         } else {
             try {
-                exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId);
+                exitCoords = computeMarkerCoordinates(outMarkerPosition, outMarkerSegmentId, transition.portalGridInfo);
             } catch (haven.Loading e) {
                 debugLog.log("[linkPortalMarkers] OUT marker Loading: " + e.getMessage());
                 throw e; // Rethrow for retry
@@ -328,22 +376,21 @@ public class PortalMarkerLinker {
     }
     
     /**
-     * Finds an existing link with the given UID on a segment.
-     * 
-     * @param segmentId segment to search
+     * Finds an existing link with the given UID.
+     * Searches for markers with matching UID across ALL segments.
+     *
      * @param uid UID to look for
-     * @return Optional containing existing link if found
+     * @return Optional containing existing link if BOTH markers exist (IN and OUT)
      */
-    private Optional<PortalMarkerLink> findExistingLink(long segmentId, String uid) {
+    private Optional<PortalMarkerLink> findExistingLink(String uid) {
         try {
             MapFile file = getMapFile();
             if (file == null || file.markers == null) {
                 return Optional.empty();
             }
 
-            // Search for markers with matching UID on this segment
+            // Search for markers with matching UID across ALL segments
             List<MapFile.Marker> markers = file.markers.stream()
-                .filter(m -> m.seg == segmentId)
                 .filter(m -> m.nm != null)
                 .filter(m -> {
                     String extractedUid = extractUidFromName(m.nm);
@@ -354,19 +401,32 @@ public class PortalMarkerLinker {
             // Only return existing link if BOTH markers exist (IN and OUT)
             if (markers.size() >= 2) {
                 // Found complete link with both markers
-                long entranceId = markers.get(0) instanceof MapFile.SMarker
-                    ? ((MapFile.SMarker)markers.get(0)).oid
-                    : markers.get(0).hashCode();
-                long exitId = markers.get(1) instanceof MapFile.SMarker
-                    ? ((MapFile.SMarker)markers.get(1)).oid
-                    : markers.get(1).hashCode();
+                MapFile.Marker inMarker = markers.stream()
+                    .filter(m -> m.nm.endsWith(" IN"))
+                    .findFirst()
+                    .orElse(markers.get(0));
+                MapFile.Marker outMarker = markers.stream()
+                    .filter(m -> m.nm.endsWith(" OUT"))
+                    .findFirst()
+                    .orElse(markers.get(1));
+
+                long entranceId = inMarker instanceof MapFile.SMarker
+                    ? ((MapFile.SMarker)inMarker).oid
+                    : inMarker.hashCode();
+                long exitId = outMarker instanceof MapFile.SMarker
+                    ? ((MapFile.SMarker)outMarker).oid
+                    : outMarker.hashCode();
+
+                debugLog.log("[findExistingLink] Found complete link with UID " + uid + 
+                    ": IN on seg=" + inMarker.seg + " at " + inMarker.tc + 
+                    ", OUT on seg=" + outMarker.seg + " at " + outMarker.tc);
 
                 return Optional.of(new PortalMarkerLink(
                     uid,
                     "unknown",
-                    entranceId, segmentId, markers.get(0).tc,
-                    exitId, segmentId,
-                    markers.get(1).tc
+                    entranceId, inMarker.seg, inMarker.tc,
+                    exitId, outMarker.seg,
+                    outMarker.tc
                 ));
             } else if (markers.size() == 1) {
                 // Only one marker exists - link is incomplete, don't skip
@@ -374,10 +434,23 @@ public class PortalMarkerLinker {
             }
         } catch (Exception e) {
             logger.logMarkerError("FIND_LINK_ERROR",
-                "segment=" + segmentId + ", uid=" + uid + ", error=" + e.getMessage());
+                "uid=" + uid + ", error=" + e.getMessage());
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Finds an existing link with the given UID on a specific segment.
+     * Deprecated: use findExistingLink(String uid) instead.
+     *
+     * @param segmentId segment to search
+     * @param uid UID to look for
+     * @return Optional containing existing link if found
+     */
+    @Deprecated
+    private Optional<PortalMarkerLink> findExistingLink(long segmentId, String uid) {
+        return findExistingLink(uid);
     }
     
     /**
@@ -436,48 +509,99 @@ public class PortalMarkerLinker {
      *
      * Throws Loading exception if GridInfo not available - caller should retry.
      *
-     * @param portalCoords portal world coordinates
+     * IMPORTANT: The coordinates must be in the target segment!
+     * - For IN marker (surface): use player position on surface
+     * - For OUT marker (underground): use player position underground
+     *
+     * @param coords world coordinates in the target segment
      * @param segmentId target segment ID (for GridInfo lookup)
+     * @param portalGridInfo cached GridInfo from portal (can be used for surface markers)
      * @return tile coordinates for marker in segment-local space
      * @throws haven.Loading if GridInfo not available
      */
-    private Coord computeMarkerCoordinates(Coord2d portalCoords, long segmentId) throws haven.Loading {
+    private Coord computeMarkerCoordinates(Coord2d coords, long segmentId, haven.MapFile.GridInfo portalGridInfo) throws haven.Loading {
         try {
+            debugLog.log("[computeMarkerCoordinates] ENTER: coords=" + coords + ", segmentId=" + segmentId);
+
             GameUI gui = NUtils.getGameUI();
+            debugLog.log("[computeMarkerCoordinates] gui=" + (gui != null ? "not null" : "NULL"));
+
             if (gui == null || gui.map == null || gui.map.glob == null || gui.map.glob.map == null) {
-                throw new haven.Loading("GUI not available");
+                String reason = gui == null ? "gui is null" :
+                               gui.map == null ? "gui.map is null" :
+                               gui.map.glob == null ? "gui.map.glob is null" :
+                               "gui.map.glob.map is null";
+                debugLog.log("[computeMarkerCoordinates] Loading: " + reason);
+                throw new haven.Loading("GUI not available: " + reason);
             }
+            debugLog.log("[computeMarkerCoordinates] gui.map.glob.map OK");
 
             MCache mcache = gui.map.glob.map;
             MapFile file = getMapFile();
+            debugLog.log("[computeMarkerCoordinates] file=" + (file != null ? "not null" : "NULL"));
             if (file == null) {
+                debugLog.log("[computeMarkerCoordinates] Loading: MapFile not available");
                 throw new haven.Loading("MapFile not available");
             }
 
             // Get tile coordinates
-            Coord tc = portalCoords.floor(MCache.tilesz);
+            Coord tc = coords.floor(MCache.tilesz);
+            debugLog.log("[computeMarkerCoordinates] tc=" + tc);
 
             // Get grid cell coordinates
             Coord gc = tc.div(MCache.cmaps);
+            debugLog.log("[computeMarkerCoordinates] gc=" + gc);
 
-            // Get the grid to access its info
-            MCache.Grid grid = mcache.getgridt(tc);
-            if (grid == null) {
-                throw new haven.Loading("Grid not available for tc=" + tc);
+            // Try to use cached portal GridInfo first (works for surface markers when underground)
+            MapFile.GridInfo info = null;
+            if (portalGridInfo != null && portalGridInfo.seg == segmentId) {
+                debugLog.log("[computeMarkerCoordinates] Using cached portal GridInfo: seg=" + portalGridInfo.seg + ", sc=" + portalGridInfo.sc);
+                info = portalGridInfo;
+            } else {
+                // Get the grid to access its info
+                debugLog.log("[computeMarkerCoordinates] Calling mcache.getgridt(" + tc + ")...");
+                MCache.Grid grid = null;
+                try {
+                    grid = mcache.getgridt(tc);
+                } catch (Exception e) {
+                    debugLog.log("[computeMarkerCoordinates] getgridt threw exception: " + e.getClass().getName() + ": " + e.getMessage());
+                    throw new haven.Loading("getgridt failed: " + e.getMessage());
+                }
+                debugLog.log("[computeMarkerCoordinates] grid=" + (grid != null ? "id=" + grid.id : "NULL"));
+                if (grid == null) {
+                    debugLog.log("[computeMarkerCoordinates] Loading: Grid not available for tc=" + tc);
+                    throw new haven.Loading("Grid not available for tc=" + tc);
+                }
+
+                // Get GridInfo from MapFile to get segment-local origin
+                debugLog.log("[computeMarkerCoordinates] Calling file.gridinfo.get(" + grid.id + ")...");
+                try {
+                    info = file.gridinfo.get(grid.id);
+                } catch (Exception e) {
+                    debugLog.log("[computeMarkerCoordinates] gridinfo.get threw exception: " + e.getClass().getName() + ": " + e.getMessage());
+                    throw new haven.Loading("gridinfo.get failed: " + e.getMessage());
+                }
+                debugLog.log("[computeMarkerCoordinates] info=" + (info != null ? "seg=" + info.seg : "NULL"));
             }
-
-            // Get GridInfo from MapFile to get segment-local origin
-            MapFile.GridInfo info = file.gridinfo.get(grid.id);
+            
             if (info == null) {
                 // GridInfo not loaded yet - throw Loading for retry
-                debugLog.log("[computeMarkerCoordinates] GridInfo returned null for grid " + grid.id + " (segment " + segmentId + ") - throwing Loading");
-                throw new haven.Loading("GridInfo not available for grid " + grid.id);
+                debugLog.log("[computeMarkerCoordinates] GridInfo returned null (segment " + segmentId + ") - throwing Loading");
+                throw new haven.Loading("GridInfo not available for segment " + segmentId);
+            }
+
+            // Verify that this GridInfo is for the correct segment
+            // This is critical for cave transitions where same coordinates exist in both segments
+            // info.seg is a long (segment ID), not an object
+            if (info.seg != segmentId) {
+                debugLog.log("[computeMarkerCoordinates] GridInfo segment mismatch: info.seg=" + info.seg + ", expected segmentId=" + segmentId + " - throwing Loading");
+                throw new haven.Loading("GridInfo segment mismatch, expected " + segmentId);
             }
 
             // Compute segment-local coordinates using vanilla formula:
             // sc = tc + (info.sc - gc) * cmaps
             Coord sc = tc.add(info.sc.sub(gc).mul(MCache.cmaps));
-            debugLog.log("[computeMarkerCoordinates] Computed sc=" + sc + " from tc=" + tc + ", info.sc=" + info.sc + ", gc=" + gc);
+            debugLog.log("[computeMarkerCoordinates] Computed sc=" + sc + " from tc=" + tc + ", info.sc=" + info.sc + ", gc=" + gc + ", segmentId=" + segmentId);
             return sc;
         } catch (haven.Loading e) {
             // Re-throw Loading exceptions
@@ -486,6 +610,19 @@ public class PortalMarkerLinker {
             debugLog.log("[computeMarkerCoordinates] ERROR: " + e.getMessage());
             throw new haven.Loading("computeMarkerCoordinates failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Computes marker tile coordinates from portal world coordinates (without cached GridInfo).
+     * Backward compatibility method.
+     *
+     * @param coords world coordinates in the target segment
+     * @param segmentId target segment ID (for GridInfo lookup)
+     * @return tile coordinates for marker in segment-local space
+     * @throws haven.Loading if GridInfo not available
+     */
+    private Coord computeMarkerCoordinates(Coord2d coords, long segmentId) throws haven.Loading {
+        return computeMarkerCoordinates(coords, segmentId, null);
     }
     
     /**
@@ -519,14 +656,19 @@ public class PortalMarkerLinker {
         try {
             MapFile file = getMapFile();
             if (file == null || file.markers == null) {
+                debugLog.log("[markerExists] MapFile or markers is null, returning false");
                 return false;
             }
 
-            return file.markers.stream()
+            boolean exists = file.markers.stream()
                 .filter(m -> m.seg == segmentId)
                 .filter(m -> m.nm != null)
                 .anyMatch(m -> m.nm.equals(markerName));
+            
+            debugLog.log("[markerExists] Checking for '" + markerName + "' on segment " + segmentId + ": " + (exists ? "EXISTS" : "NOT FOUND"));
+            return exists;
         } catch (Exception e) {
+            debugLog.log("[markerExists] ERROR: " + e.getMessage());
             return false;
         }
     }
