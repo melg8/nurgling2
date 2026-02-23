@@ -94,13 +94,21 @@ public class PortalName {
     public static String getDirection(long fromSegmentId, long toSegmentId, String portalName) {
         // Normalize portal name for comparison
         String lower = (portalName != null) ? portalName.toLowerCase() : "";
-        
-        // 1. Cave transitions (surface ↔ underground)
-        // Cave has special handling because it connects surface to underground level 1
+
+        // 1. Cave entrance/exit - direction determined by portal TYPE, not segments
+        // cavein = entrance (go IN to cave), caveout = exit (go OUT of cave)
+        if (lower.contains("cavein")) {
+            return "IN";   // Entrance to cave
+        }
+        if (lower.contains("caveout")) {
+            return "OUT";  // Exit from cave
+        }
+
+        // 2. Cave transitions (surface ↔ underground) - fallback for generic "cave"
         if (lower.contains("cave")) {
             boolean fromSurface = (fromSegmentId == SURFACE_INSTANCE);
             boolean toSurface = (toSegmentId == SURFACE_INSTANCE);
-            
+
             if (!fromSurface && toSurface) {
                 return "OUT";  // Exiting cave to surface
             }
